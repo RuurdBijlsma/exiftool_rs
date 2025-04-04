@@ -1,18 +1,32 @@
-use crate::parse::output_type::ExifOutput;
-use serde_path_to_error as spte;
-use std::error::Error;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
+use serde_path_to_error as spte;
+use thiserror::Error;
 
-/// Executes ExifTool with the given arguments, using JSON output mode,
-/// and returns the parsed Exif metadata as `ExifOutput`.
-pub fn parse_output(output: &Value) -> Result<ExifOutput, Box<dyn std::error::Error>> {
-    let exif = spte::deserialize(output).map_err(|e| {
-        let path = e.path().to_string();
-        println!("Failed at field: {}", path);
-        println!("Problematic value: {:#?}", e.inner());
-        e
-    })?;
+#[derive(Debug, Error)]
+pub enum ExifParseError {
+    #[error("Deserialization error at path '{path}': {source}")]
+    Deserialization {
+        path: String,
+        source: serde_json::Error,
+    },
+}
 
+impl From<spte::Error<serde_json::Error>> for ExifParseError {
+    fn from(err: spte::Error<serde_json::Error>) -> Self {
+        ExifParseError::Deserialization {
+            path: err.path().to_string(),
+            source: err.into_inner(),
+        }
+    }
+}
+
+/// Parses JSON output from ExifTool into the specified type
+pub fn parse_output<T>(output: &Value) -> Result<T, ExifParseError>
+where
+    T: DeserializeOwned,
+{
+    let exif = spte::deserialize(output)?;
     Ok(exif)
 }
 
@@ -20,18 +34,41 @@ pub fn parse_output(output: &Value) -> Result<ExifOutput, Box<dyn std::error::Er
 mod tests {
     use super::*;
     use crate::execute::execute;
+    use crate::parse::output_type::ExifOutput;
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize)]
+    struct TestError {}
 
     #[tokio::test]
-    async fn test_parse_output() {
-        let out_result = execute(&["test_data/IMG_20170801_162043.jpg"]).await;
-        assert!(out_result.is_ok());
-        let parsed_result = parse_output(&out_result.unwrap());
-        if let Err(e) = &parsed_result {
-            println!("PARSE ERROR: {:#?}", e);
-        }
-        assert!(parsed_result.is_ok());
-        if let Ok(exif) = parsed_result {
-            println!("Parsed Exif Data: {:#?}", exif);
+    async fn test_successful_deserialization() {
+        let filename = "IMG_20170801_162043.jpg";
+        let json = execute(&[&format!("test_data/{}", filename)])
+            .await
+            .unwrap();
+
+        let result: Result<ExifOutput, _> = parse_output(&json);
+        assert!(result.is_ok());
+
+        let parsed = result.unwrap();
+        assert_eq!(parsed.len(), 1);
+        let item = &parsed[0];
+        assert_eq!(item.file_name.clone().unwrap(), filename);
+        assert_eq!(item.mime_type.clone().unwrap(), "image/jpeg");
+    }
+
+    #[test]
+    fn test_deserialization_error() {
+        let json = serde_json::json!({
+            "existing_field": "value"
+        });
+
+        let result: Result<TestError, _> = parse_output(&json);
+        assert!(result.is_err());
+
+        if let Err(ExifParseError::Deserialization { path, source }) = result {
+            assert_eq!(path, "non_existent_field");
+            assert!(source.to_string().contains("missing field"));
         }
     }
 }
