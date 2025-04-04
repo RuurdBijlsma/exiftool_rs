@@ -33,18 +33,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execute::execute_json;
+    use crate::execute::ExifTool;
     use crate::parse::structs::ExifOutput;
     use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
-    struct TestError {}
+    struct TestError {
+        wrong_field: String,
+    }
 
     #[tokio::test]
     async fn test_successful_deserialization() {
+        let mut exiftool = ExifTool::new().unwrap();
         let filename = "IMG_20170801_162043.jpg";
-        let json = execute_json(&[&format!("test_data/{}", filename)])
-            .await
+        let json = exiftool
+            .execute_json(&[&format!("test_data/{}", filename)])
             .unwrap();
 
         let result: Result<ExifOutput, _> = parse_output(&json);
@@ -61,7 +64,7 @@ mod tests {
         );
 
         println!("{:#?}", item);
-        let result = item.blue_trc.clone().unwrap().extract().unwrap();
+        let result = item.blue_trc.clone().unwrap().extract("BlueTRC").unwrap();
         println!("{:#?}", result);
     }
 
@@ -75,7 +78,7 @@ mod tests {
         assert!(result.is_err());
 
         if let Err(ExifParseError::Deserialization { path, source }) = result {
-            assert_eq!(path, "non_existent_field");
+            assert_eq!(path, ".");
             assert!(source.to_string().contains("missing field"));
         }
     }
