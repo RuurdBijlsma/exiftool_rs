@@ -3,12 +3,14 @@ use serde::{Deserialize, Deserializer};
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryDataField {
     bytes: usize,
-    field_name: String,
 }
 
 impl BinaryDataField {
-    pub fn extract(&self) -> Result<Vec<u8>, std::io::Error> {
-        println!("[EXTRACT] bytes: {}, field_name: {}", self.bytes, self.field_name);
+    pub fn extract(&self, field_name: &str) -> Result<Vec<u8>, std::io::Error> {
+        println!(
+            "[EXTRACT] bytes: {}, field_name: {}",
+            self.bytes, field_name
+        );
         Ok(vec![1, 2, 3])
     }
 }
@@ -28,8 +30,5 @@ where
 
     let bytes = caps[1].parse::<usize>().map_err(serde::de::Error::custom)?;
 
-    Ok(Some(BinaryDataField {
-        bytes,
-        field_name: "BlueTRC".to_string(),
-    }))
+    Ok(Some(BinaryDataField { bytes }))
 }

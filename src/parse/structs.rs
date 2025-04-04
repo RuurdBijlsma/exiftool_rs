@@ -1,6 +1,6 @@
+use crate::parse_fn::binary::BinaryDataField;
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use serde::Deserialize;
-use crate::parse_fn::binary::BinaryDataField;
 
 // Type alias for the top-level array structure
 pub type ExifOutput = Vec<ExifData>;
@@ -132,7 +132,10 @@ pub struct ExifData {
     pub blue_matrix_column: Option<Vec<f64>>,
 
     // Binary data
-    #[serde(alias = "BlueTRC", deserialize_with = "crate::parse_fn::binary::binary")]
+    #[serde(
+        alias = "BlueTRC",
+        deserialize_with = "crate::parse_fn::binary::binary"
+    )]
     pub blue_trc: Option<BinaryDataField>,
     #[serde(alias = "GreenTRC")]
     pub green_trc: Option<String>,
