@@ -199,6 +199,7 @@ mod tests {
 
     #[test]
     fn test_file_not_found() -> Result<(), ExifToolError> {
+        // todo this test doesnt always succeed (race consition or something? the resulting output is empty then)
         let filename = "nonexistent.jpg";
         let mut exiftool = ExifTool::new()?;
         let result = exiftool.execute_json(&[filename]);
