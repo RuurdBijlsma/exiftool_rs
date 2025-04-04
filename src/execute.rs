@@ -22,7 +22,7 @@ pub enum ExifError {
 
 /// Executes ExifTool with the given arguments, using JSON output mode,
 /// and returns the parsed Exif metadata as `serde_json::Value`.
-pub async fn execute(args: &[&str]) -> Result<Value, ExifError> {
+pub async fn execute_json(args: &[&str]) -> Result<Value, ExifError> {
     let mut cmd_args = vec!["-json"];
     cmd_args.extend_from_slice(args);
 
@@ -52,14 +52,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_success() {
-        let result = execute(&["test_data/IMG_20170801_162043.jpg"]).await;
+        let result = execute_json(&["test_data/IMG_20170801_162043.jpg"]).await;
         assert!(result.is_ok());
+        println!("{:#?}", result);
     }
 
     #[tokio::test]
     async fn test_execute_non_existent_file() {
         let filename = "nonexistent.jpg";
-        let result = execute(&[filename]).await;
+        let result = execute_json(&[filename]).await;
         match result {
             Err(ExifError::FileNotFound(f)) => {
                 assert_eq!(f, filename);
@@ -67,23 +68,5 @@ mod tests {
             Err(e) => panic!("Expected FileNotFound error, got {:?}", e),
             Ok(_) => panic!("Expected error but got success"),
         }
-    }
-
-    #[tokio::test]
-    async fn test_other_error() {
-        let filename = "test_data/output.json";
-        let result = execute(&[filename]).await;
-        match result {
-            Err(ExifError::FileNotFound(f)) => {
-                assert_eq!(f, filename);
-            }
-            Err(e) => panic!("Expected FileNotFound error, got {:?}", e),
-            Ok(_) => panic!("Expected error but got success"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_utf8_error_handling() {
-        // Test case for invalid UTF-8 (though exiftool should always output valid UTF-8)
     }
 }

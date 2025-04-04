@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use serde::{self, Deserialize, Deserializer};
 
-pub(crate) fn parse_fixed_datetime<'de, D>(
+pub fn fixed<'de, D>(
     deserializer: D,
 ) -> Result<Option<DateTime<FixedOffset>>, D::Error>
 where
@@ -13,7 +13,7 @@ where
         .map_err(serde::de::Error::custom)
 }
 
-pub(crate) fn parse_naive_datetime<'de, D>(
+pub fn naive<'de, D>(
     deserializer: D,
 ) -> Result<Option<NaiveDateTime>, D::Error>
 where
@@ -25,7 +25,7 @@ where
         .map_err(serde::de::Error::custom)
 }
 
-pub(crate) fn parse_naive_datetime_with_subsec<'de, D>(
+pub fn naive_with_subsec<'de, D>(
     deserializer: D,
 ) -> Result<Option<NaiveDateTime>, D::Error>
 where

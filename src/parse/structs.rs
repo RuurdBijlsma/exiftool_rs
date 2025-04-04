@@ -1,5 +1,6 @@
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use serde::Deserialize;
+use crate::parse_fn::binary::BinaryDataField;
 
 // Type alias for the top-level array structure
 pub type ExifOutput = Vec<ExifData>;
@@ -8,34 +9,34 @@ pub type ExifOutput = Vec<ExifData>;
 #[serde(rename_all = "PascalCase")]
 pub struct ExifData {
     // --- Date Fields ---
-    #[serde(deserialize_with = "crate::parse::datetime::parse_fixed_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
     pub file_modify_date: Option<DateTime<FixedOffset>>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_fixed_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
     pub file_access_date: Option<DateTime<FixedOffset>>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_fixed_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
     pub file_create_date: Option<DateTime<FixedOffset>>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub modify_date: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub create_date: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub date_time_original: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
     pub sub_sec_create_date: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
     pub sub_sec_date_time_original: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
     pub sub_sec_modify_date: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse::datetime::parse_naive_datetime")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub profile_date_time: Option<NaiveDateTime>,
 
     // --- File Metadata ---
@@ -64,7 +65,7 @@ pub struct ExifData {
     pub y_cb_cr_positioning: Option<String>,
     pub resolution_unit: Option<String>,
     #[serde(alias = "YResolution")]
-    pub y_resolution: Option<f64>, // Use f64 for potential float values
+    pub y_resolution: Option<f64>,
     pub orientation: Option<String>,
     pub software: Option<String>,
     pub color_space: Option<String>,
@@ -83,8 +84,8 @@ pub struct ExifData {
     pub exposure_program: Option<String>,
     pub white_balance: Option<String>,
     pub exif_image_width: Option<u32>,
-    pub sub_sec_time: Option<u32>, // Duplicate of others? ExifTool redundancy.
-    pub shutter_speed_value: Option<f64>, // This seems like an APEX value or similar
+    pub sub_sec_time: Option<u32>,
+    pub shutter_speed_value: Option<f64>,
     pub metering_mode: Option<String>,
     pub components_configuration: Option<String>,
     pub subject_distance: Option<String>, // "1.15 m", string due to unit
@@ -92,19 +93,19 @@ pub struct ExifData {
     pub flash: Option<String>,
     pub interop_index: Option<String>,
     pub interop_version: Option<String>,
-    pub exposure_compensation: Option<f64>, // Could be fractional
+    pub exposure_compensation: Option<f64>,
     pub brightness_value: Option<f64>,
     #[serde(alias = "ISO")]
     pub iso: Option<u32>,
     pub sensing_method: Option<String>,
     pub flashpix_version: Option<String>,
-    pub exposure_time: Option<String>, // "1/30", keep as string (fraction)
+    pub exposure_time: Option<String>,
     #[serde(alias = "XResolution")]
     pub x_resolution: Option<f64>,
     pub make: Option<String>, // Camera Make
     pub thumbnail_length: Option<u32>,
     pub thumbnail_offset: Option<u32>,
-    pub compression: Option<String>, // Thumbnail compression
+    pub compression: Option<String>,
 
     // --- ICC Profile Fields ---
     pub profile_cmm_type: Option<String>,
@@ -118,37 +119,49 @@ pub struct ExifData {
     #[serde(alias = "CMMFlags")]
     pub cmm_flags: Option<String>,
     pub device_manufacturer: Option<String>, // Profile device, distinct from camera Make
-    pub device_model: Option<String>, // Profile device, distinct from camera Model
+    pub device_model: Option<String>,        // Profile device, distinct from camera Model
     pub device_attributes: Option<String>,
     pub rendering_intent: Option<String>,
-    pub connection_space_illuminant: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub connection_space_illuminant: Option<Vec<f64>>,
     pub profile_creator: Option<String>,
     #[serde(alias = "ProfileID")]
     pub profile_id: Option<String>,
     pub profile_description: Option<String>,
-    pub blue_matrix_column: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub blue_matrix_column: Option<Vec<f64>>,
 
-    // Binary data placeholders - keep as strings
-    pub blue_trc: Option<String>,
+    // Binary data
+    #[serde(alias = "BlueTRC", deserialize_with = "crate::parse_fn::binary::binary")]
+    pub blue_trc: Option<BinaryDataField>,
+    #[serde(alias = "GreenTRC")]
     pub green_trc: Option<String>,
+    #[serde(alias = "RedTRC")]
     pub red_trc: Option<String>,
     pub thumbnail_image: Option<String>,
 
     pub device_model_desc: Option<String>,
-    pub green_matrix_column: Option<String>, // Space separated numbers, keep as String
-    pub luminance: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub green_matrix_column: Option<Vec<f64>>,
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub luminance: Option<Vec<f64>>,
     pub measurement_observer: Option<String>,
-    pub measurement_backing: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub measurement_backing: Option<Vec<f64>>,
     pub measurement_geometry: Option<String>,
     pub measurement_flare: Option<String>, // "0%", keep as string due to unit
     pub measurement_illuminant: Option<String>,
-    pub media_black_point: Option<String>, // Space separated numbers, keep as String
-    pub red_matrix_column: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub media_black_point: Option<Vec<f64>>,
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub red_matrix_column: Option<Vec<f64>>,
     pub technology: Option<String>,
     pub viewing_cond_desc: Option<String>,
-    pub media_white_point: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub media_white_point: Option<Vec<f64>>,
     pub profile_copyright: Option<String>,
-    pub chromatic_adaptation: Option<String>, // Space separated numbers, keep as String
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    pub chromatic_adaptation: Option<Vec<f64>>,
 
     // --- Image Attributes ---
     pub image_width: Option<u32>,
@@ -160,16 +173,11 @@ pub struct ExifData {
     pub y_cb_cr_sub_sampling: Option<String>,
 
     // --- Composite Fields (Often derived by ExifTool) ---
-    pub aperture: Option<f64>, // Often same as ApertureValue
+    pub aperture: Option<f64>,      // Often same as ApertureValue
     pub image_size: Option<String>, // "2688x1512"
     pub megapixels: Option<f64>,
     pub shutter_speed: Option<String>, // "1/30", Often same as ExposureTime
     #[serde(alias = "FocalLength35efl")]
     pub focal_length_35_efl: Option<String>, // String due to unit, distinct from FocalLength
     pub light_value: Option<f64>,
-
-    // If you encounter fields not listed here, add them following the same pattern.
-    // Use Option<T> for robustness against missing fields.
-    // Use #[serde(alias = "JsonFieldName")] if the JSON field name doesn't match
-    // the snake_case version of the Rust field name (though rename_all handles most).
 }

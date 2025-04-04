@@ -33,8 +33,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execute::execute;
-    use crate::parse::output_type::ExifOutput;
+    use crate::execute::execute_json;
+    use crate::parse::structs::ExifOutput;
     use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
@@ -43,7 +43,7 @@ mod tests {
     #[tokio::test]
     async fn test_successful_deserialization() {
         let filename = "IMG_20170801_162043.jpg";
-        let json = execute(&[&format!("test_data/{}", filename)])
+        let json = execute_json(&[&format!("test_data/{}", filename)])
             .await
             .unwrap();
 
@@ -55,6 +55,14 @@ mod tests {
         let item = &parsed[0];
         assert_eq!(item.file_name.clone().unwrap(), filename);
         assert_eq!(item.mime_type.clone().unwrap(), "image/jpeg");
+        assert_eq!(
+            item.blue_matrix_column.clone().unwrap(),
+            vec![0.14307, 0.06061, 0.7141]
+        );
+
+        println!("{:#?}", item);
+        let result = item.blue_trc.clone().unwrap().extract().unwrap();
+        println!("{:#?}", result);
     }
 
     #[test]
