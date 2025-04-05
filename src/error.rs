@@ -21,6 +21,9 @@ pub enum ExifToolError {
     #[error("Process terminated unexpectedly")]
     ProcessTerminated,
 
+    #[error("stderr channel for exiftool disconnected.")]
+    ChannelDisconnected,
+
     #[error("Operation timed out")]
     Timeout,
 

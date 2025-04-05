@@ -1,26 +1,26 @@
 use crate::error::ExifToolError;
 use serde_json::Value;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
-
 pub struct ExifTool {
     timeout: Duration,
     stdin: BufWriter<ChildStdin>,
     stdout: BufReader<ChildStdout>,
-    // Shared buffer to collect stderr output.
     error_receiver: Receiver<String>,
     child: Child,
 }
+use image::ImageReader;
+use std::io::Cursor;
 
 impl ExifTool {
     pub fn new() -> Result<Self, ExifToolError> {
-        Self::new_with_timeout(Duration::from_secs(5))
+        Self::with_timeout(Duration::from_secs(5))
     }
 
-    pub fn new_with_timeout(timeout: Duration) -> Result<Self, ExifToolError> {
+    pub fn with_timeout(timeout: Duration) -> Result<Self, ExifToolError> {
         let mut child = std::process::Command::new("exiftool")
             .arg("-stay_open")
             .arg("True")
@@ -63,32 +63,38 @@ impl ExifTool {
     }
 
     fn read_response(&mut self) -> Result<Vec<u8>, ExifToolError> {
-        // todo de timeout doet niks als er geen message meer komt en hij nog wel wacht
-        let start = Instant::now();
-        let mut output = Vec::new();
-        let mut line = String::new();
-        let ready_marker_windows = "{ready}\r\n";
-        let ready_marker_unix = "{ready}\n";
+        let mut buffer = Vec::new();
+        let ready_marker_unix = b"{ready}\n"; // 7 bytes
+        let ready_marker_win = b"{ready}\r\n"; // 8 bytes
 
-        while start.elapsed() < self.timeout {
-            line.clear();
-            match self.stdout.read_line(&mut line) {
-                Ok(0) => return Err(ExifToolError::ProcessTerminated),
-                Ok(_) => {
-                    if line == ready_marker_unix || line == ready_marker_windows {
-                        break;
-                    }
-                    output.extend_from_slice(line.as_bytes());
+        loop {
+            let mut chunk = [0u8; 4096];
+            let bytes_read = self.stdout.read(&mut chunk)?;
+
+            if bytes_read == 0 {
+                return Err(ExifToolError::ProcessTerminated);
+            }
+
+            buffer.extend_from_slice(&chunk[..bytes_read]);
+
+            // Check for Windows marker first (longer)
+            if buffer.len() >= ready_marker_win.len() {
+                let win_start = buffer.len() - ready_marker_win.len();
+                if &buffer[win_start..] == ready_marker_win {
+                    buffer.truncate(win_start);
+                    return Ok(buffer);
                 }
-                Err(e) => return Err(e.into()),
+            }
+
+            // Check for Unix marker
+            if buffer.len() >= ready_marker_unix.len() {
+                let unix_start = buffer.len() - ready_marker_unix.len();
+                if &buffer[unix_start..] == ready_marker_unix {
+                    buffer.truncate(unix_start);
+                    return Ok(buffer);
+                }
             }
         }
-
-        if start.elapsed() >= self.timeout {
-            return Err(ExifToolError::Timeout);
-        }
-
-        Ok(output)
     }
 
     fn get_error_lines(&mut self) -> Result<Vec<String>, ExifToolError> {
@@ -99,8 +105,14 @@ impl ExifTool {
         let mut err_lines = Vec::new();
 
         while start.elapsed() < poll_timeout {
-            while let Ok(err_line) = self.error_receiver.try_recv() {
-                err_lines.push(err_line);
+            loop {
+                match self.error_receiver.try_recv() {
+                    Ok(line) => err_lines.push(line),
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        return Err(ExifToolError::ChannelDisconnected)
+                    }
+                }
             }
             if !err_lines.is_empty() {
                 // expect all errors to come in a burst
@@ -114,6 +126,8 @@ impl ExifTool {
     /// Executes the given command arguments and returns the raw response bytes.
     /// After reading stdout, it checks the shared error buffer for any stderr output.
     pub fn execute_bytes(&mut self, cmd_args: &[&str]) -> Result<Vec<u8>, ExifToolError> {
+        // Clear previous errors
+        let _: Vec<String> = self.error_receiver.try_iter().collect();
         // Send command to exiftool.
         for arg in cmd_args {
             writeln!(self.stdin, "{}", arg)?;
@@ -151,7 +165,8 @@ impl ExifTool {
     }
 
     pub fn close(&mut self) -> Result<(), ExifToolError> {
-        writeln!(self.stdin, "-stay_open\nFalse\n")?;
+        writeln!(self.stdin, "-stay_open")?;
+        writeln!(self.stdin, "False")?;
         self.stdin.flush()?;
         Ok(())
     }
@@ -190,7 +205,6 @@ mod tests {
 
     #[test]
     fn test_file_not_found() -> Result<(), ExifToolError> {
-        // todo this test doesnt always succeed (race condition or something? the resulting output is empty then)
         let filename = "nonexistent.jpg";
         let mut exiftool = ExifTool::new()?;
         let result = exiftool.execute_bytes(&[filename]);
@@ -202,6 +216,33 @@ mod tests {
                 Ok(())
             }
             other => panic!("Expected FileNotFound error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_large_binary_response() -> Result<(), ExifToolError> {
+        let mut exiftool = ExifTool::new()?;
+        let file = "test_data/IMG_20170801_162043.jpg";
+        let result = exiftool.execute_bytes(&["-b", "-ThumbnailImage", file]);
+
+        match result {
+            Ok(data) => {
+                // Verify it's a valid JPEG
+                let cursor = Cursor::new(&data);
+                let format = ImageReader::new(cursor)
+                    .with_guessed_format()
+                    .expect("Cursor never fails")
+                    .format();
+
+                assert_eq!(format, Some(image::ImageFormat::Jpeg));
+
+                // decode to check that it's readable
+                let img = image::load_from_memory(&data).unwrap();
+                println!("Thumbnail dimensions: {}x{}", img.width(), img.height());
+
+                Ok(())
+            }
+            Err(e) => Err(e),
         }
     }
 }
