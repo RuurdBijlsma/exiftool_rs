@@ -7,6 +7,7 @@ pub type ExifOutput = Vec<ExifData>;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[allow(dead_code)]
 pub struct ExifData {
     // --- Date Fields ---
     #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
@@ -137,11 +138,15 @@ pub struct ExifData {
         deserialize_with = "crate::parse_fn::binary::binary"
     )]
     pub blue_trc: Option<BinaryDataField>,
-    #[serde(alias = "GreenTRC")]
-    pub green_trc: Option<String>,
-    #[serde(alias = "RedTRC")]
-    pub red_trc: Option<String>,
-    pub thumbnail_image: Option<String>,
+    #[serde(
+        alias = "GreenTRC",
+        deserialize_with = "crate::parse_fn::binary::binary"
+    )]
+    pub green_trc: Option<BinaryDataField>,
+    #[serde(alias = "RedTRC", deserialize_with = "crate::parse_fn::binary::binary")]
+    pub red_trc: Option<BinaryDataField>,
+    #[serde(deserialize_with = "crate::parse_fn::binary::binary")]
+    pub thumbnail_image: Option<BinaryDataField>,
 
     pub device_model_desc: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]

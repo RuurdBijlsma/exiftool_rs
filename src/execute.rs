@@ -1,40 +1,26 @@
+use crate::error::ExifToolError;
 use serde_json::Value;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::process::{Child, ChildStdin, ChildStdout};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
 use std::time::{Duration, Instant};
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum ExifToolError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("File not found: {0}")]
-    FileNotFound(String),
-    #[error("ExifTool error: {0}")]
-    ExifTool(String),
-    #[error("JSON parse error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("UTF-8 conversion error: {0}")]
-    Utf8(#[from] std::string::FromUtf8Error),
-    #[error("Process terminated unexpectedly")]
-    ProcessTerminated,
-    #[error("Operation timed out")]
-    Timeout,
-}
 
 pub struct ExifTool {
+    timeout: Duration,
     stdin: BufWriter<ChildStdin>,
     stdout: BufReader<ChildStdout>,
     // Shared buffer to collect stderr output.
-    error_buffer: Arc<Mutex<Vec<String>>>,
-    // Handle for the thread that reads stderr.
-    _stderr_handle: std::thread::JoinHandle<()>,
+    error_receiver: Receiver<String>,
     child: Child,
 }
 
 impl ExifTool {
     pub fn new() -> Result<Self, ExifToolError> {
+        Self::new_with_timeout(Duration::from_secs(5))
+    }
+
+    pub fn new_with_timeout(timeout: Duration) -> Result<Self, ExifToolError> {
         let mut child = std::process::Command::new("exiftool")
             .arg("-stay_open")
             .arg("True")
@@ -51,41 +37,40 @@ impl ExifTool {
         let stdout = child.stdout.take().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to capture stdout")
         })?;
+        // Capture stderr only once.
         let stderr = child.stderr.take().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to capture stderr")
         })?;
 
-        // Create a shared buffer and spawn a thread to read stderr continuously.
-        let error_buffer = Arc::new(Mutex::new(Vec::new()));
-        let error_buffer_clone = Arc::clone(&error_buffer);
+        // Create a channel and spawn a thread to read stderr continuously.
+        let (error_sender, error_receiver): (Sender<String>, Receiver<String>) = mpsc::channel();
         let stderr_reader = BufReader::new(stderr);
-        let _stderr_handle = std::thread::spawn(move || {
+        thread::spawn(move || {
             for line in stderr_reader.lines() {
                 if let Ok(l) = line {
-                    let mut errors = error_buffer_clone.lock().unwrap();
-                    errors.push(l);
+                    let _ = error_sender.send(l);
                 }
             }
         });
 
         Ok(Self {
+            timeout,
             stdin: BufWriter::new(stdin),
             stdout: BufReader::new(stdout),
-            error_buffer,
-            _stderr_handle,
+            error_receiver,
             child,
         })
     }
 
     fn read_response(&mut self) -> Result<Vec<u8>, ExifToolError> {
-        let timeout = Duration::from_secs(5);
+        // todo de timeout doet niks als er geen message meer komt en hij nog wel wacht
         let start = Instant::now();
         let mut output = Vec::new();
         let mut line = String::new();
         let ready_marker_windows = "{ready}\r\n";
         let ready_marker_unix = "{ready}\n";
 
-        while start.elapsed() < timeout {
+        while start.elapsed() < self.timeout {
             line.clear();
             match self.stdout.read_line(&mut line) {
                 Ok(0) => return Err(ExifToolError::ProcessTerminated),
@@ -99,11 +84,31 @@ impl ExifTool {
             }
         }
 
-        if start.elapsed() >= timeout {
+        if start.elapsed() >= self.timeout {
             return Err(ExifToolError::Timeout);
         }
 
         Ok(output)
+    }
+
+    fn get_error_lines(&mut self) -> Result<Vec<String>, ExifToolError> {
+        // Give error messages a chance to arrive.
+        let poll_timeout = Duration::from_millis(100);
+        let poll_interval = Duration::from_millis(5);
+        let start = Instant::now();
+        let mut err_lines = Vec::new();
+
+        while start.elapsed() < poll_timeout {
+            while let Ok(err_line) = self.error_receiver.try_recv() {
+                err_lines.push(err_line);
+            }
+            if !err_lines.is_empty() {
+                // expect all errors to come in a burst
+                break;
+            }
+            thread::sleep(poll_interval);
+        }
+        Ok(err_lines)
     }
 
     /// Executes the given command arguments and returns the raw response bytes.
@@ -119,15 +124,17 @@ impl ExifTool {
         // Read stdout response until the ready marker.
         let stdout_bytes = self.read_response()?;
 
-        // Check for any stderr output collected by the background thread.
-        let errors = self.error_buffer.lock().unwrap();
-        if !errors.is_empty() {
-            let err_str = errors.join("\n");
-            // Check for "File not found" error pattern
-            if let Some(filename) = err_str.strip_prefix("Error: File not found - ") {
-                return Err(ExifToolError::FileNotFound(filename.trim().to_string()));
+        if stdout_bytes.len() == 0 {
+            let err_lines = self.get_error_lines()?;
+            if err_lines.is_empty() {
+                return Err(ExifToolError::EmptyResponse);
             }
-            return Err(ExifToolError::ExifTool(err_str));
+            for err_line in &err_lines {
+                if let Some(filename) = err_line.strip_prefix("Error: File not found - ") {
+                    return Err(ExifToolError::FileNotFound(filename.trim().to_string()));
+                }
+            }
+            return Err(ExifToolError::ExifTool(err_lines.join("\n")));
         }
 
         Ok(stdout_bytes)
@@ -140,22 +147,6 @@ impl ExifTool {
         let output_bytes = self.execute_bytes(&cmd_args)?;
         let output = String::from_utf8(output_bytes)?;
         let value: Value = serde_json::from_str(&output)?;
-
-        // Check for ExifTool errors in the JSON output.
-        if let Value::Array(arr) = &value {
-            for obj in arr {
-                if let Value::Object(map) = obj {
-                    if let Some(Value::String(err_msg)) = map.get("Error") {
-                        if err_msg.contains("File not found") {
-                            let filename = args.first().cloned().unwrap_or("<unknown>").to_string();
-                            return Err(ExifToolError::FileNotFound(filename));
-                        }
-                        return Err(ExifToolError::ExifTool(err_msg.clone()));
-                    }
-                }
-            }
-        }
-
         Ok(value)
     }
 
@@ -199,10 +190,11 @@ mod tests {
 
     #[test]
     fn test_file_not_found() -> Result<(), ExifToolError> {
-        // todo this test doesnt always succeed (race consition or something? the resulting output is empty then)
+        // todo this test doesnt always succeed (race condition or something? the resulting output is empty then)
         let filename = "nonexistent.jpg";
         let mut exiftool = ExifTool::new()?;
-        let result = exiftool.execute_json(&[filename]);
+        let result = exiftool.execute_bytes(&[filename]);
+        assert!(!result.is_ok());
 
         match result {
             Err(ExifToolError::FileNotFound(f)) => {

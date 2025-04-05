@@ -1,32 +1,14 @@
+use crate::error::ExifToolError;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use serde_path_to_error as spte;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum ExifParseError {
-    #[error("Deserialization error at path '{path}': {source}")]
-    Deserialization {
-        path: String,
-        source: serde_json::Error,
-    },
-}
-
-impl From<spte::Error<serde_json::Error>> for ExifParseError {
-    fn from(err: spte::Error<serde_json::Error>) -> Self {
-        ExifParseError::Deserialization {
-            path: err.path().to_string(),
-            source: err.into_inner(),
-        }
-    }
-}
+use serde_path_to_error;
 
 /// Parses JSON output from ExifTool into the specified type
-pub fn parse_output<T>(output: &Value) -> Result<T, ExifParseError>
+pub fn parse_output<T>(output: &Value) -> Result<T, ExifToolError>
 where
     T: DeserializeOwned,
 {
-    let exif = spte::deserialize(output)?;
+    let exif = serde_path_to_error::deserialize(output)?;
     Ok(exif)
 }
 
@@ -34,10 +16,11 @@ where
 mod tests {
     use super::*;
     use crate::execute::ExifTool;
-    use crate::parse::structs::ExifOutput;
+    use crate::structs::structs::ExifOutput;
     use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
+    #[allow(dead_code)]
     struct TestError {
         wrong_field: String,
     }
@@ -77,7 +60,7 @@ mod tests {
         let result: Result<TestError, _> = parse_output(&json);
         assert!(result.is_err());
 
-        if let Err(ExifParseError::Deserialization { path, source }) = result {
+        if let Err(ExifToolError::Deserialization { path, source }) = result {
             assert_eq!(path, ".");
             assert!(source.to_string().contains("missing field"));
         }
