@@ -68,10 +68,7 @@ pub struct CameraMetadata {
     pub depth_map_near: Option<f64>,
     pub depth_map_units: Option<String>, // Could be enum: Diopters
     pub device_model_desc: Option<String>,
-    #[serde(
-        deserialize_with = "crate::parse_fn::undef_or_float::float",
-        default
-    )]
+    #[serde(deserialize_with = "crate::parse_fn::undef_or_float::float", default)]
     pub digital_zoom_ratio: Option<f64>,
     pub exposure_mode: Option<String>,
     pub exposure_program: Option<String>,
@@ -179,6 +176,7 @@ pub struct ImageMetadata {
         default
     )]
     pub blue_trc: Option<BinaryDataField>,
+    #[serde(deserialize_with = "crate::parse_fn::undef_or_float::float", default)]
     pub brightness_value: Option<f64>,
     #[serde(alias = "CFAPattern")]
     pub cfa_pattern: Option<String>, // e.g., "[Green,Red][Blue,Green]"
@@ -314,10 +312,7 @@ pub struct ImageMetadata {
     pub orientation: Option<String>,
     pub other_image_length: Option<u32>,
     pub other_image_start: Option<u32>,
-    #[serde(
-        deserialize_with = "crate::parse_fn::string::string",
-        default
-    )]
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub pixel_aspect_ratio: Option<String>, // e.g., "65536:65536"
     pub pose_heading_degrees: Option<f64>,
     pub primary_platform: Option<String>, // Could be enum

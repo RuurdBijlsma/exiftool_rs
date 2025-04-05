@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dir_path = PathBuf::from("E:/Backup/Photos/photos/photos");
 
     // Number of random files to sample
-    let sample_size = 500;
+    let sample_size = 5000;
 
     // Read directory and collect all regular files
     let mut files: Vec<PathBuf> = fs::read_dir(&dir_path)?

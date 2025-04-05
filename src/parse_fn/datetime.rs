@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, NaiveDateTime};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use serde::{self, Deserialize, Deserializer};
 
 #[derive(Debug, Clone)]
@@ -83,8 +83,9 @@ where
             return Ok(Some(naive));
         }
         // Try parsing as a naive datetime without time
-        if let Ok(naive) = NaiveDateTime::parse_from_str(&s, "%Y:%m:%d") {
-            return Ok(Some(naive));
+        if let Ok(naive_date) = NaiveDate::parse_from_str(&s, "%Y:%m:%d") {
+            let datetime = naive_date.and_hms_opt(0, 0, 0);
+            return Ok(datetime);
         }
         // If all parsing attempts fail, just make it None;
         dbg!("Parsing datetime failed: {}", &s);
