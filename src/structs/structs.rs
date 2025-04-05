@@ -2,26 +2,19 @@ use crate::parse_fn::binary::BinaryDataField;
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use serde::Deserialize;
 
-// Type alias for the top-level array structure
 pub type ExifOutput = Vec<ExifData>;
-// TODO make structs:
-// * base file struct with file tags
-// * image struct for comon image tags
-// * video struct for common video tags
-// * jpg/png/xmp/quicktime/matroska/gif structs
-// * make composed structs for common use that mix together base+image+video+jpg+png+quicktime+etc....
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
 pub struct ExifData {
     // --- Date Fields ---
-    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::with_timezone")]
     pub file_modify_date: Option<DateTime<FixedOffset>>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::with_timezone")]
     pub file_access_date: Option<DateTime<FixedOffset>>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::with_timezone")]
     pub file_create_date: Option<DateTime<FixedOffset>>,
 
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
@@ -33,13 +26,13 @@ pub struct ExifData {
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub date_time_original: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub sub_sec_create_date: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub sub_sec_date_time_original: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub sub_sec_modify_date: Option<NaiveDateTime>,
 
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]

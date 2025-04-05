@@ -15,9 +15,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::structs::structs::ExifOutput;
-    use serde::Deserialize;
     use crate::executors::stay_open::ExifTool;
+    use crate::structs::poging_drie::ExifOutput;
+    use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
     #[allow(dead_code)]
@@ -30,35 +30,58 @@ mod tests {
         let mut exiftool = ExifTool::new().unwrap();
         let filename = "IMG_20170801_162043.jpg";
         let json = exiftool
-            .execute_json(&[&format!("test_data/{}", filename)])
+            .execute_json(&["-g2", &format!("test_data/{}", filename)])
             .unwrap();
+        dbg!(&json);
 
         let result: Result<ExifOutput, _> = parse_output(&json);
+        dbg!(&result);
         assert!(result.is_ok());
 
         let parsed = result.unwrap();
         assert_eq!(parsed.len(), 1);
         let item = &parsed[0];
-        assert_eq!(item.file_name.clone().unwrap(), filename);
-        assert_eq!(item.mime_type.clone().unwrap(), "image/jpeg");
         assert_eq!(
-            item.blue_matrix_column.clone().unwrap(),
+            item.other.clone().and_then(|o| o.file_name).unwrap(),
+            filename
+        );
+        assert_eq!(
+            item.other.clone().and_then(|o| o.mime_type).unwrap(),
+            "image/jpeg"
+        );
+
+        // .unwrap().mime_type.unwrap(), "image/jpeg");
+        assert_eq!(
+            item.image
+                .clone()
+                .and_then(|i| i.blue_matrix_column)
+                .unwrap(),
             vec![0.14307, 0.06061, 0.7141]
         );
 
         println!("{:#?}", item);
-        let result = item.blue_trc.clone().unwrap().extract("BlueTRC").unwrap();
+        let result = item
+            .image
+            .clone()
+            .and_then(|i| i.blue_trc)
+            .unwrap()
+            .extract("BlueTRC")
+            .unwrap();
         println!("{:#?}", result);
     }
 
     #[test]
-    fn test_binary_field()->Result<(), ExifToolError> {
+    fn test_binary_field() -> Result<(), ExifToolError> {
         let mut exiftool = ExifTool::new()?;
         let file = "test_data/IMG_20170801_162043.jpg";
         let json_result = exiftool.execute_json(&[file])?;
         let result: ExifOutput = parse_output(&json_result)?;
         let item = result.get(0).unwrap();
-        let binary_field = item.thumbnail_image.clone().unwrap();
+        let binary_field = item
+            .preview
+            .clone()
+            .and_then(|p| p.thumbnail_image)
+            .unwrap();
         let bytes = binary_field.extract("ThumbnailImage")?;
         assert_eq!(bytes.len(), binary_field.size_bytes);
 

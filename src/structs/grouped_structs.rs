@@ -242,9 +242,9 @@ pub struct TimeData {
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub date_time_original: Option<NaiveDateTime>, // CUSTOM PARSING
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::with_timezone")]
     pub file_access_date: Option<DateTime<FixedOffset>>, // e.g. "2025:04:05 18:50:45+02:00"
-    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::with_timezone")]
     pub file_create_date: Option<DateTime<FixedOffset>>,
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub modify_date: Option<NaiveDateTime>,
@@ -252,13 +252,13 @@ pub struct TimeData {
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")] // Assuming same format
     pub profile_date_time: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub sub_sec_create_date: Option<NaiveDateTime>, // CUSTOM PARSING
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub sub_sec_date_time_original: Option<NaiveDateTime>, // CUSTOM PARSING
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive_with_subsec")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub sub_sec_modify_date: Option<NaiveDateTime>, // CUSTOM PARSING
 
     pub sub_sec_time: Option<u32>,
@@ -275,7 +275,7 @@ pub struct TimeData {
     #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
     pub media_modify_date: Option<NaiveDateTime>,
 
-    #[serde(deserialize_with = "crate::parse_fn::datetime::fixed")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::with_timezone")]
     pub metadata_date: Option<DateTime<FixedOffset>>, // Includes timezone offset "2008:09:12 11:17:39-04:00"
     pub content_create_date: Option<i32>, // e.g., 2010 (numeric year)
 }
