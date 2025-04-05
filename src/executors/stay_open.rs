@@ -146,7 +146,7 @@ impl ExifTool {
                     return Err(ExifToolError::FileNotFound(filename.trim().to_string()));
                 }
             }
-            return Err(ExifToolError::ExifTool(err_lines.join("\n")));
+            return Err(ExifToolError::ExifToolError(err_lines.join("\n")));
         }
 
         Ok(stdout_bytes)

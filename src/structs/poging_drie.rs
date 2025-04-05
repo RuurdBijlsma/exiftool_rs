@@ -1,6 +1,6 @@
 use crate::parse_fn::binary::BinaryDataField;
 use crate::parse_fn::datetime::MaybeDateTime;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::Deserialize;
 
 pub type ExifOutput = Vec<ExifData>;
@@ -68,6 +68,10 @@ pub struct CameraMetadata {
     pub depth_map_near: Option<f64>,
     pub depth_map_units: Option<String>, // Could be enum: Diopters
     pub device_model_desc: Option<String>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::undef_or_float::float",
+        default
+    )]
     pub digital_zoom_ratio: Option<f64>,
     pub exposure_mode: Option<String>,
     pub exposure_program: Option<String>,
@@ -110,13 +114,13 @@ pub struct CameraMetadata {
     pub metering_mode: Option<String>,
     pub model: Option<String>,
     // MotionPhoto seems boolean-like (1)
-    pub motion_photo: Option<bool>, // Or Option<u8> if other values possible
+    pub motion_photo: Option<u8>, // Or Option<u8> if other values possible
     pub motion_photo_presentation_timestamp_us: Option<u64>, // Microseconds
     pub motion_photo_version: Option<f64>, // Or u32 if always integer
     pub portrait_note: Option<String>, // Encoded?
     pub portrait_relighting_light_pos: Option<String>, // Encoded?
     pub portrait_relighting_rendering_options: Option<String>, // Encoded?
-    pub profiles: Option<String>,   // URI
+    pub profiles: Option<String>, // URI
     #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
     pub relit_input_image_data: Option<BinaryDataField>,
     pub relit_input_image_mime: Option<String>, // e.g., "image/jpeg"
@@ -167,11 +171,12 @@ pub struct ImageMetadata {
     pub aperture_value: Option<f64>,
     pub bit_depth: Option<u8>,       // Likely always 24 for JPEG?
     pub bits_per_sample: Option<u8>, // Usually 8 for JPEG channels
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub blue_matrix_column: Option<Vec<f64>>,
     #[serde(
         alias = "BlueTRC",
-        deserialize_with = "crate::parse_fn::binary::binary"
+        deserialize_with = "crate::parse_fn::binary::binary",
+        default
     )]
     pub blue_trc: Option<BinaryDataField>,
     pub brightness_value: Option<f64>,
@@ -179,7 +184,7 @@ pub struct ImageMetadata {
     pub cfa_pattern: Option<String>, // e.g., "[Green,Red][Blue,Green]"
     #[serde(alias = "CMMFlags")]
     pub cmm_flags: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub chromatic_adaptation: Option<Vec<f64>>,
     pub color_components: Option<u8>,
     pub color_space: Option<String>,
@@ -191,9 +196,9 @@ pub struct ImageMetadata {
     pub compression: Option<String>,              // e.g., "JPEG (old-style)"
     #[serde(alias = "CompressorID")]
     pub compressor_id: Option<String>, // e.g., "avc1"
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub connection_space_illuminant: Option<Vec<f64>>,
-    #[serde(alias = "CreatorTool")]
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub creator_tool: Option<String>, // e.g., "Google"
     pub cropped_area_image_height_pixels: Option<u32>,
     pub cropped_area_image_width_pixels: Option<u32>,
@@ -212,21 +217,31 @@ pub struct ImageMetadata {
     // DirectoryItemLength can be a single number or [u64, u64]
     // Serde might handle [0, 123] into Vec<u64> automatically.
     // If it fails, use a custom deserializer or Value.
-    #[serde(alias = "DirectoryItemLength")]
+    #[serde(
+        alias = "DirectoryItemLength",
+        deserialize_with = "crate::parse_fn::array_or_int::to_array",
+        default
+    )]
     pub directory_item_length: Option<Vec<u64>>,
     #[serde(alias = "DirectoryItemMime")]
     pub directory_item_mime: Option<Vec<String>>, // e.g. ["image/jpeg", "video/mp4"]
-    #[serde(alias = "DirectoryItemPadding")]
-    pub directory_item_padding: Option<Vec<Vec<u64>>>, // Nested arrays [[0,0]]
+    #[serde(
+        alias = "DirectoryItemPadding",
+        deserialize_with = "crate::parse_fn::array_or_int::to_array",
+        default
+    )]
+    pub directory_item_padding: Option<Vec<u64>>, // Nested arrays [[0,0]]
     #[serde(alias = "DirectoryItemSemantic")]
     pub directory_item_semantic: Option<Vec<String>>, // e.g. ["Primary", "MotionPhoto"]
     pub encoding_process: Option<String>, // e.g., "Baseline DCT, Huffman coding"
     pub exif_byte_order: Option<String>,  // Could be enum: Big-endian, Little-endian
     pub exif_image_height: Option<u32>,
     pub exif_image_width: Option<u32>,
-    pub exif_version: Option<String>,       // e.g., "0232"
-    pub exposure_compensation: Option<f64>, // Often 0
-    pub exposure_index: Option<String>,     // Often "undef"
+    pub exif_version: Option<String>, // e.g., "0232"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub exposure_compensation: Option<String>, // Often 0
+    pub exposure_index: Option<String>, // Often "undef"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub exposure_time: Option<String>, // String to handle fractions like "1/518" or numbers like 1
     #[serde(alias = "FNumber")]
     pub f_number: Option<f64>,
@@ -236,16 +251,21 @@ pub struct ImageMetadata {
     pub flashpix_version: Option<String>, // e.g., "0100"
     pub full_pano_height_pixels: Option<u32>,
     pub full_pano_width_pixels: Option<u32>,
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub green_matrix_column: Option<Vec<f64>>,
     #[serde(
         alias = "GreenTRC",
-        deserialize_with = "crate::parse_fn::binary::binary"
+        deserialize_with = "crate::parse_fn::binary::binary",
+        default
     )]
     pub green_trc: Option<BinaryDataField>,
     #[serde(alias = "IPTCDigest")]
     pub iptc_digest: Option<String>, // Hex string (often same as CurrentIPTCDigest)
-    #[serde(alias = "ISO")]
+    #[serde(
+        alias = "ISO",
+        deserialize_with = "crate::parse_fn::string::string",
+        default
+    )]
     pub iso: Option<String>, // String to handle "50, 0, 0" and numbers
     pub image_description: Option<String>,
     pub image_height: Option<u32>,
@@ -264,7 +284,7 @@ pub struct ImageMetadata {
     pub lens_make: Option<String>,
     pub lens_model: Option<String>,
     pub light_value: Option<f64>,
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub luminance: Option<Vec<f64>>,
     #[serde(alias = "MPFVersion")]
     pub mpf_version: Option<String>, // e.g., "0100"
@@ -279,21 +299,25 @@ pub struct ImageMetadata {
     #[serde(alias = "MPImageType")]
     pub mp_image_type: Option<String>, // e.g., "Undefined"
     pub maker_note_unknown_text: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub measurement_backing: Option<Vec<f64>>,
     pub measurement_flare: Option<String>, // String due to "%"
     pub measurement_geometry: Option<String>, // Could be enum
     pub measurement_illuminant: Option<String>, // Could be enum: D65
     pub measurement_observer: Option<String>, // Could be enum: CIE 1931
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub media_black_point: Option<Vec<f64>>,
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub media_white_point: Option<Vec<f64>>,
     pub megapixels: Option<f64>,
     pub number_of_images: Option<u32>,
     pub orientation: Option<String>,
     pub other_image_length: Option<u32>,
     pub other_image_start: Option<u32>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::string::string",
+        default
+    )]
     pub pixel_aspect_ratio: Option<String>, // e.g., "65536:65536"
     pub pose_heading_degrees: Option<f64>,
     pub primary_platform: Option<String>, // Could be enum
@@ -304,19 +328,30 @@ pub struct ImageMetadata {
     pub profile_creator: Option<String>,
     pub profile_description: Option<String>,
     pub profile_file_signature: Option<String>, // e.g., "acsp"
-    #[serde(alias = "ProfileID")]
+    #[serde(
+        alias = "ProfileID",
+        deserialize_with = "crate::parse_fn::string::string",
+        default
+    )]
     pub profile_id: Option<String>, // Hex string
     pub profile_version: Option<String>,        // e.g., "2.0.0"
     pub projection_type: Option<String>,        // e.g., "equirectangular"
-    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats")]
+    #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub red_matrix_column: Option<Vec<f64>>,
-    #[serde(alias = "RedTRC", deserialize_with = "crate::parse_fn::binary::binary", default)]
+    #[serde(
+        alias = "RedTRC",
+        deserialize_with = "crate::parse_fn::binary::binary",
+        default
+    )]
     pub red_trc: Option<BinaryDataField>,
     pub rendering_intent: Option<String>, // Could be enum: Perceptual
     pub resolution_unit: Option<String>,
     pub scene_type: Option<String>, // Could be enum: Directly photographed
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub shutter_speed: Option<String>, // String to handle fractions like "1/518" or numbers like 1
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub shutter_speed_value: Option<String>, // String to handle fractions like "1/100" or numbers
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub software: Option<String>,
     pub source_image_height: Option<u32>,
     pub source_image_width: Option<u32>,
@@ -354,12 +389,14 @@ pub struct LocationMetadata {
     pub gps_dop: Option<f64>, // GPS Degree of Precision
     #[serde(
         alias = "GPSDateStamp",
-        deserialize_with = "crate::parse_fn::datetime::naive"
+        deserialize_with = "crate::parse_fn::date::date",
+        default
     )] // YYYY:MM:DD
-    pub gps_date_stamp: Option<NaiveDateTime>,
+    pub gps_date_stamp: Option<NaiveDate>,
     #[serde(
         alias = "GPSDateTime",
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone"
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
     )] // Includes Z
     pub gps_date_time: Option<MaybeDateTime>,
     #[serde(alias = "GPSImgDirection")]
@@ -376,13 +413,18 @@ pub struct LocationMetadata {
     pub gps_longitude_ref: Option<String>,
     #[serde(alias = "GPSPosition")]
     pub gps_position: Option<String>, // Combined Lat/Lon string (often same as GPSCoordinates)
-    #[serde(alias = "GPSProcessingMethod")]
+    #[serde(
+        alias = "GPSProcessingMethod",
+        deserialize_with = "crate::parse_fn::string::string",
+        default
+    )]
     pub gps_processing_method: Option<String>, // e.g., "fused", "GPS", "NETWORK"
     #[serde(
         alias = "GPSTimeStamp",
-        deserialize_with = "crate::parse_fn::datetime::naive"
+        deserialize_with = "crate::parse_fn::time::timestamp",
+        default
     )] // HH:MM:SS
-    pub gps_time_stamp: Option<NaiveDateTime>,
+    pub gps_time_stamp: Option<NaiveTime>,
     #[serde(alias = "GPSVersionID")]
     pub gps_version_id: Option<String>, // e.g., "2.2.0.0"
 }
@@ -396,6 +438,7 @@ pub struct OtherMetadata {
     pub android_capture_fps: Option<u32>,
     pub android_make: Option<String>,
     pub android_model: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub android_version: Option<String>, // String to handle "7.1.2" etc.
     pub application_record_version: Option<u32>,
     #[serde(alias = "CodedCharacterSet")]
@@ -435,8 +478,9 @@ pub struct PreviewMetadata {
     #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
     pub gain_map_image: Option<BinaryDataField>,
     #[serde(
-        alias = "MPImage2", // Assuming MPImage2 corresponds to one of these preview images
-        deserialize_with = "crate::parse_fn::binary::binary"
+        alias = "MPImage2",
+        deserialize_with = "crate::parse_fn::binary::binary",
+        default
     )]
     pub mp_image2: Option<BinaryDataField>,
     #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
@@ -449,68 +493,101 @@ pub struct PreviewMetadata {
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
 pub struct TimeMetadata {
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub date_created: Option<NaiveDateTime>, // Seems redundant with CreateDate
-    #[serde(deserialize_with = "crate::parse_fn::datetime::possible_timezone")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
     pub date_time_created: Option<MaybeDateTime>, // Includes timezone
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub date_time_original: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::possible_timezone")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
     pub file_access_date: Option<MaybeDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::possible_timezone")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
     pub file_create_date: Option<MaybeDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::possible_timezone")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
     pub file_modify_date: Option<MaybeDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::possible_timezone")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
     // Example: "2015:07:11 11:37:41.746Z"
     pub first_photo_date: Option<MaybeDateTime>, // Or NaiveDateTime if Z is not always there
     #[serde(
         alias = "GPSDateStamp",
-        deserialize_with = "crate::parse_fn::datetime::naive"
+        deserialize_with = "crate::parse_fn::date::date",
+        default
     )] // YYYY:MM:DD
-    pub gps_date_stamp: Option<NaiveDateTime>, // Duplicated in Location, keep consistent
+    pub gps_date_stamp: Option<NaiveDate>, // Duplicated in Location, keep consistent
     #[serde(
         alias = "GPSDateTime",
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone"
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
     )] // Includes Z
     pub gps_date_time: Option<MaybeDateTime>, // Duplicated in Location
     #[serde(
         alias = "GPSTimeStamp",
-        deserialize_with = "crate::parse_fn::datetime::naive"
+        deserialize_with = "crate::parse_fn::time::timestamp",
+        default
     )] // HH:MM:SS
-    pub gps_time_stamp: Option<NaiveDateTime>, // Duplicated in Location
-    #[serde(deserialize_with = "crate::parse_fn::datetime::possible_timezone")]
+    pub gps_time_stamp: Option<NaiveTime>, // Duplicated in Location
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
     // Example: "2015:07:11 11:38:14.223Z"
     pub last_photo_date: Option<MaybeDateTime>, // Or NaiveDateTime
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub media_create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub media_modify_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub modify_date: Option<NaiveDateTime>,
     pub offset_time: Option<String>, // e.g., "+02:00"
     pub offset_time_digitized: Option<String>,
     pub offset_time_original: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub profile_date_time: Option<NaiveDateTime>,
     // SubSec fields often duplicate the main date but add precision.
     // Assuming your naive parser handles ".ffffff" suffix.
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
-    pub sub_sec_create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
-    pub sub_sec_date_time_original: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
-    pub sub_sec_modify_date: Option<NaiveDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
+    pub sub_sec_create_date: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
+    pub sub_sec_date_time_original: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        default
+    )]
+    pub sub_sec_modify_date: Option<MaybeDateTime>,
     // SubSecTime appears to be just the fractional part as a string/number
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub sub_sec_time: Option<String>, // Keep as string, parsing requires care
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub sub_sec_time_digitized: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub sub_sec_time_original: Option<String>,
     pub time_created: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub track_create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive")]
+    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
     pub track_modify_date: Option<NaiveDateTime>,
 }
 

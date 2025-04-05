@@ -10,7 +10,7 @@ pub enum ExifToolError {
     FileNotFound(String),
 
     #[error("ExifTool error: {0}")]
-    ExifTool(String),
+    ExifToolError(String),
 
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),

@@ -19,12 +19,12 @@ pub fn execute_bytes(args: &[&str]) -> Result<Vec<u8>, ExifToolError> {
     }
 
     if !errors.is_empty() {
-        return Err(ExifToolError::ExifTool(errors.join("\n")));
+        return Err(ExifToolError::ExifToolError(errors.join("\n")));
     }
 
     // Check exit status
     if !output.status.success() && stdout.is_empty() {
-        return Err(ExifToolError::ExifTool(format!(
+        return Err(ExifToolError::ExifToolError(format!(
             "ExifTool exited with status: {}",
             output.status
         )));

@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_file_path = "examples/combined.json";
 
     // Number of random files to sample
-    let sample_size = 100;
+    let sample_size = 500;
 
     // Read directory and collect all regular files
     let mut files: Vec<PathBuf> = fs::read_dir(&dir_path)?
