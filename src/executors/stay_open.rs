@@ -181,10 +181,9 @@ impl Drop for ExifTool {
 mod tests {
     use super::*;
     use image::ImageReader;
-    use std::fs;
-    use std::io;
     use std::io::Cursor;
-    use std::path::{Path, PathBuf};
+    use std::path::{Path};
+    use crate::utils::get_files_in_dir;
 
     #[test]
     fn test_basic_functionality() -> Result<(), ExifToolError> {
@@ -281,24 +280,5 @@ mod tests {
         }
 
         Ok(())
-    }
-
-    /// Get all files in a directory (non-recursive)
-    fn get_files_in_dir(dir: &str) -> io::Result<Vec<PathBuf>> {
-        let mut files = Vec::new();
-
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_file() {
-                files.push(path);
-            }
-        }
-
-        // Sort for consistent test order
-        files.sort();
-
-        Ok(files)
     }
 }

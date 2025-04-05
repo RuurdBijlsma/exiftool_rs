@@ -15,9 +15,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execute::ExifTool;
     use crate::structs::structs::ExifOutput;
     use serde::Deserialize;
+    use crate::executors::stay_open::ExifTool;
 
     #[derive(Debug, Deserialize)]
     #[allow(dead_code)]
@@ -49,6 +49,20 @@ mod tests {
         println!("{:#?}", item);
         let result = item.blue_trc.clone().unwrap().extract("BlueTRC").unwrap();
         println!("{:#?}", result);
+    }
+
+    #[test]
+    fn test_binary_field()->Result<(), ExifToolError> {
+        let mut exiftool = ExifTool::new()?;
+        let file = "test_data/IMG_20170801_162043.jpg";
+        let json_result = exiftool.execute_json(&[file])?;
+        let result: ExifOutput = parse_output(&json_result)?;
+        let item = result.get(0).unwrap();
+        let binary_field = item.thumbnail_image.clone().unwrap();
+        let bytes = binary_field.extract("ThumbnailImage")?;
+        assert_eq!(bytes.len(), binary_field.size_bytes);
+
+        Ok(())
     }
 
     #[test]
