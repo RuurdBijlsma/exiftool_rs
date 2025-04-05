@@ -180,9 +180,11 @@ impl Drop for ExifTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
     use image::ImageReader;
+    use std::fs;
+    use std::io;
     use std::io::Cursor;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn test_basic_functionality() -> Result<(), ExifToolError> {
@@ -220,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn test_large_binary_response() -> Result<(), ExifToolError> {
+    fn test_binary_response() -> Result<(), ExifToolError> {
         let mut exiftool = ExifTool::new()?;
         let file = "test_data/IMG_20170801_162043.jpg";
         let result = exiftool.execute_bytes(&["-b", "-ThumbnailImage", file]);
@@ -244,5 +246,59 @@ mod tests {
             }
             Err(e) => Err(e),
         }
+    }
+
+    #[test]
+    fn test_all_exif_files() -> Result<(), ExifToolError> {
+        let test_dir = "test_data/exiftool_images";
+
+        // Collect all files in directory (non-recursive)
+        let files = get_files_in_dir(test_dir)?;
+        assert!(files.len() > 0);
+
+        let mut exiftool = ExifTool::new()?;
+
+        for file in files {
+            let file_path = file.to_string_lossy();
+            println!("\nTesting: {}", file_path);
+
+            // Single full metadata extraction per file
+            let result = exiftool.execute_json(&[file_path.as_ref()])?;
+
+            // Basic validation
+            assert!(
+                result.is_array(),
+                "Expected JSON array for file {}",
+                file_path
+            );
+            assert!(
+                !result.as_array().unwrap().is_empty(),
+                "Empty result for file {}",
+                file_path
+            );
+
+            println!("Metadata for {}: {:#?}", file_path, result);
+        }
+
+        Ok(())
+    }
+
+    /// Get all files in a directory (non-recursive)
+    fn get_files_in_dir(dir: &str) -> io::Result<Vec<PathBuf>> {
+        let mut files = Vec::new();
+
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.is_file() {
+                files.push(path);
+            }
+        }
+
+        // Sort for consistent test order
+        files.sort();
+
+        Ok(files)
     }
 }

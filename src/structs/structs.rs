@@ -4,7 +4,12 @@ use serde::Deserialize;
 
 // Type alias for the top-level array structure
 pub type ExifOutput = Vec<ExifData>;
-
+// TODO make structs:
+// * base file struct with file tags
+// * image struct for comon image tags
+// * video struct for common video tags
+// * jpg/png/xmp/quicktime/matroska/gif structs
+// * make composed structs for common use that mix together base+image+video+jpg+png+quicktime+etc....
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
