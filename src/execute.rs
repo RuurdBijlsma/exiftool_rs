@@ -12,8 +12,6 @@ pub struct ExifTool {
     error_receiver: Receiver<String>,
     child: Child,
 }
-use image::ImageReader;
-use std::io::Cursor;
 
 impl ExifTool {
     pub fn new() -> Result<Self, ExifToolError> {
@@ -183,6 +181,8 @@ impl Drop for ExifTool {
 mod tests {
     use super::*;
     use std::path::Path;
+    use image::ImageReader;
+    use std::io::Cursor;
 
     #[test]
     fn test_basic_functionality() -> Result<(), ExifToolError> {
