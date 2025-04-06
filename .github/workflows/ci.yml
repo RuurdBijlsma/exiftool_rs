@@ -65,10 +65,7 @@ jobs:
       # Strict Clippy checks
       - name: Run Clippy (strict)
         run: |
-          cargo clippy --all-targets --all-features -- -D warnings \
-          -A clippy::missing_errors_doc \
-          -A clippy::missing_panics_doc
-
+          cargo clippy --all-targets --all-features -- -D warnings -A clippy::missing_errors_doc -A clippy::missing_panics_doc
       # Build in release mode to catch more potential issues
       - name: Build (release)
         run: cargo build --release --verbose
