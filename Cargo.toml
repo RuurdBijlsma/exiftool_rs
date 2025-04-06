@@ -2,6 +2,9 @@
 name = "exiftool_wrapper"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+description = "A wrapper around Phil Harvey's powerful ExifTool."
+homepage = "https://github.com/ruurdbijlsma/exiftool"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive", "serde_derive"] }
