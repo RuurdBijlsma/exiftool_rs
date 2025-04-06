@@ -1,4 +1,4 @@
-use exiftool_wrapper::executors::stay_open::ExifTool;
+use exiftool_wrapper::exiftool::ExifTool;
 use serde_json::{Map, Value};
 use std::fs::File;
 use std::path::{Path, PathBuf};

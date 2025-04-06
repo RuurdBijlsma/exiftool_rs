@@ -1,4 +1,4 @@
-use exiftool_wrapper::executors::stay_open::ExifTool;
+use exiftool_wrapper::exiftool::ExifTool;
 use exiftool_wrapper::parse::parse_output::parse_output;
 use exiftool_wrapper::structs::g2::ExifData;
 use std::collections::HashSet;

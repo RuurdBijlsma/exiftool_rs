@@ -1,10 +1,12 @@
 use crate::error::ExifToolError;
 use serde_json::Value;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
+
 pub struct ExifTool {
     stdin: BufWriter<ChildStdin>,
     stdout: BufReader<ChildStdout>,
@@ -181,10 +183,15 @@ impl ExifTool {
     /// `exiftool {file_path} -b -{field_name}`
     pub fn binary_field(
         &mut self,
-        file_path: &str,
+        file_path: &Path,
         field_name: &str,
     ) -> Result<Vec<u8>, ExifToolError> {
-        self.execute_raw(&[file_path, "-b", &format!("-{}", field_name)])
+        let path_str = file_path.to_string_lossy();
+        self.execute_raw(&[
+            path_str.as_ref(),
+            "-b",
+            &format!("-{}", field_name),
+        ])
     }
 
     /// Get JSON metadata for a single file. This will return a single json object.
@@ -195,10 +202,11 @@ impl ExifTool {
     /// You can tell exiftool to structure the output by grouping into categories with `-g1` or `-g2`.
     pub fn file_metadata(
         &mut self,
-        file_path: &str,
+        file_path: &Path,
         extra_args: &[&str],
     ) -> Result<Value, ExifToolError> {
-        let mut args = vec![file_path];
+        let path_str = file_path.to_string_lossy();
+        let mut args = vec![path_str.as_ref()];
         args.extend_from_slice(extra_args);
         let result = self.execute_json(&args)?;
         if let Some(single) = result.as_array().and_then(|a| a.first()) {
@@ -234,9 +242,9 @@ mod tests {
     #[test]
     fn test_basic_functionality() -> Result<(), ExifToolError> {
         let mut exiftool = ExifTool::new()?;
-        let file = "test_data/IMG_20170801_162043.jpg";
+        let file = Path::new("test_data/IMG_20170801_162043.jpg");
 
-        assert!(Path::new(file).exists(), "Test file doesn't exist");
+        assert!(file.exists(), "Test file doesn't exist");
 
         // First query
         let result = exiftool.file_metadata(file, &[])?;
@@ -269,7 +277,7 @@ mod tests {
     #[test]
     fn test_binary_response() -> Result<(), ExifToolError> {
         let mut exiftool = ExifTool::new()?;
-        let file = "test_data/IMG_20170801_162043.jpg";
+        let file = Path::new("test_data/IMG_20170801_162043.jpg");
         let result = exiftool.binary_field(file, "ThumbnailImage");
 
         match result {
@@ -296,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_all_exif_files() -> Result<(), ExifToolError> {
-        let test_dir = "test_data/exiftool_images";
+        let test_dir = "test_data";
 
         // Collect all files in directory (non-recursive)
         let files = list_files_recursive(test_dir.as_ref())?;
@@ -305,25 +313,18 @@ mod tests {
         let mut exiftool = ExifTool::new()?;
 
         for file in files {
-            let file_path = file.to_string_lossy();
-            println!("\nTesting: {}", file_path);
+            println!("\nTesting: {}", &file.display());
 
             // Single full metadata extraction per file
-            let result = exiftool.file_metadata(&file_path, &[])?;
+            let result = exiftool.file_metadata(&file, &[])?;
 
             // Basic validation
-            assert!(
-                result.is_object(),
-                "Expected JSON array for file {}",
-                file_path
-            );
+            assert!(result.is_object(), "Expected JSON array for file {}", &file.display());
             assert!(
                 !result.as_object().unwrap().is_empty(),
                 "Empty result for file {}",
-                file_path
+                &file.display()
             );
-
-            println!("Metadata for {}: {:#?}", file_path, result);
         }
 
         Ok(())

@@ -31,7 +31,8 @@ pub struct ExifData {
 #[allow(dead_code)]
 pub struct AudioMetadata {
     pub audio_bits_per_sample: Option<u16>,
-    pub audio_channels: Option<u8>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub audio_channels: Option<String>,
     pub audio_format: Option<String>,
     pub audio_sample_rate: Option<u32>,
     pub balance: Option<f64>, // Assuming float is possible
@@ -71,6 +72,7 @@ pub struct CameraMetadata {
     pub exposure_program: Option<String>,
     pub flash: Option<String>,
     pub flash_energy: Option<f64>,    // Assuming float, likely 0
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub focal_length: Option<String>, // String due to "mm" unit
     #[serde(alias = "FocalLength35efl")]
     pub focal_length_35_efl: Option<String>, // Complex string format
@@ -158,9 +160,7 @@ pub struct ExifToolMetadata {
 pub struct ImageMetadata {
     pub aperture: Option<f64>,
     pub aperture_value: Option<f64>,
-    pub bit_depth: Option<u8>, // Likely always 24 for JPEG?
-    #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
-    pub bits_per_sample: Option<u32>,
+    pub bit_depth: Option<u8>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub blue_matrix_column: Option<Vec<f64>>,
     #[serde(alias = "BlueTRC")]
@@ -251,10 +251,12 @@ pub struct ImageMetadata {
     )]
     pub iso: Option<String>, // String to handle "50, 0, 0" and numbers
     pub image_description: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
     pub image_height: Option<u32>,
     pub image_size: Option<String>, // e.g., "2688x1512"
     #[serde(alias = "ImageUniqueID")]
     pub image_unique_id: Option<String>, // Hex or alphanumeric ID
+    #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
     pub image_width: Option<u32>,
     pub interop_index: Option<String>, // e.g., "R98 - DCF basic file (sRGB)"
     pub interop_version: Option<String>, // e.g., "0100"

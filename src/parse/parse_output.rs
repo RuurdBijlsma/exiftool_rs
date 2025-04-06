@@ -15,9 +15,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::executors::stay_open::ExifTool;
+    use crate::exiftool::ExifTool;
     use crate::structs::g2::ExifData;
+    use crate::utils::test_helpers::list_files_recursive;
     use serde::Deserialize;
+    use std::path::Path;
 
     #[derive(Debug, Deserialize)]
     #[allow(dead_code)]
@@ -29,7 +31,8 @@ mod tests {
     fn test_successful_deserialization() -> Result<(), ExifToolError> {
         let mut exiftool = ExifTool::new()?;
         let filename = "IMG_20170801_162043.jpg";
-        let file_path = format!("test_data/{}", filename);
+        let file_path_str = format!("test_data/{}", filename);
+        let file_path = Path::new(&file_path_str);
         let json = exiftool.file_metadata(&file_path, &["-g2"])?;
 
         let result: ExifData = parse_output(&json)?;
@@ -69,6 +72,32 @@ mod tests {
         if let Err(ExifToolError::Deserialization { path, source }) = result {
             assert_eq!(path, ".");
             assert!(source.to_string().contains("missing field"));
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_deserialize_all() -> Result<(), ExifToolError> {
+        let test_dir = "test_data";
+
+        // Collect all files in directory (non-recursive)
+
+        let binding = list_files_recursive(test_dir.as_ref())?;
+        let mut args: Vec<&str> = binding.iter()
+            .map(|p| p.to_str())
+            .filter(|p| p.is_some())
+            .map(|p| p.unwrap())
+            .collect();
+        assert!(!args.is_empty());
+        args.insert(0, "-g2");
+
+        let mut exiftool = ExifTool::new()?;
+        let result = exiftool.execute_json(&args)?;
+        let parsed = parse_output::<Vec<ExifData>>(&result)?;
+
+        for item in parsed{
+            println!("{:?}", item.source_file);
+
         }
 
         Ok(())
