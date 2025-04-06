@@ -30,6 +30,9 @@ pub enum ExifToolError {
     #[error("Empty response, and no errors detected.")]
     EmptyResponse,
 
+    #[error("Expected different format from exiftool.")]
+    UnexpectedFormat,
+
     #[error("Deserialization error at path '{path}': {source}")]
     Deserialization {
         path: String,

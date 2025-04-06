@@ -1,8 +1,23 @@
-use exiftool_wrapper::executors::single::execute_json;
-use rand::seq::SliceRandom;
+use exiftool_wrapper::executors::stay_open::ExifTool;
 use serde_json::{Map, Value};
-use std::fs::{self, File};
-use std::path::PathBuf;
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
+
+fn list_files_recursive(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+
+    for entry in WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| e.ok()) // Ignore errors during traversal
+        .filter(|e| e.file_type().is_file())
+    // Only include files
+    {
+        files.push(entry.into_path());
+    }
+
+    Ok(files)
+}
 
 // --- combine_exif_json function remains the same ---
 fn combine_exif_json(input_array: &Value) -> Result<Value, String> {
@@ -49,7 +64,7 @@ fn combine_exif_json(input_array: &Value) -> Result<Value, String> {
                                     }
                                     serde_json::map::Entry::Occupied(mut nested_entry) => {
                                         if let Some(arr) = nested_entry.get_mut().as_array_mut() {
-                                            if !arr.contains(&nested_value) {
+                                            if !arr.contains(nested_value) {
                                                 arr.push(nested_value.clone());
                                             }
                                         } else {
@@ -67,17 +82,15 @@ fn combine_exif_json(input_array: &Value) -> Result<Value, String> {
                                 key, combined_value
                             ));
                         }
-                    } else {
-                        if let Some(arr) = combined_value.as_array_mut() {
-                            if !arr.contains(&current_value) {
-                                arr.push(current_value.clone());
-                            }
-                        } else {
-                            return Err(format!(
-                                "Type mismatch for key '{}': expected Array, found {:?}",
-                                key, combined_value
-                            ));
+                    } else if let Some(arr) = combined_value.as_array_mut() {
+                        if !arr.contains(current_value) {
+                            arr.push(current_value.clone());
                         }
+                    } else {
+                        return Err(format!(
+                            "Type mismatch for key '{}': expected Array, found {:?}",
+                            key, combined_value
+                        ));
                     }
                 }
             }
@@ -90,52 +103,22 @@ fn combine_exif_json(input_array: &Value) -> Result<Value, String> {
 // Using Result<(), Box<dyn std::error::Error>> for main to easily handle errors
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Hardcoded directory path
-    let dir_path = PathBuf::from("E:/Backup/Photos/photos/photos");
+    let dir_path = PathBuf::from("test_data/other_images");
     // Output file path
-    let output_file_path = "examples/combined.json";
-
-    // Number of random files to sample
-    let sample_size = 500;
+    let output_file_path = "examples/example_output/combined.json";
 
     // Read directory and collect all regular files
-    let mut files: Vec<PathBuf> = fs::read_dir(&dir_path)?
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
-        .filter(|path| path.is_file())
-        .collect();
+    let files: Vec<PathBuf> = list_files_recursive(&dir_path)?;
 
     if files.is_empty() {
         println!("No files found in the directory: {}", dir_path.display());
         return Ok(()); // Exit cleanly
     }
 
-    if files.len() < sample_size {
-        println!(
-            "Warning: Found only {} files, sampling all of them.",
-            files.len()
-        );
-    } else {
-        // Shuffle the files
-        // Use thread_rng() for simplicity unless specific seeding is needed
-        let mut rng = rand::thread_rng();
-        files.shuffle(&mut rng);
-    }
-
-    // Take the first N items (or all if fewer than N exist)
-    let sampled_files: Vec<PathBuf> = files.into_iter().take(sample_size).collect();
-
-    if sampled_files.is_empty() {
-        println!("No files were sampled.");
-        return Ok(());
-    }
-
-    println!("Sampling {} files:", sampled_files.len());
-    for file in &sampled_files {
-        println!("  - {}", file.display());
-    }
+    dbg!(&files.len());
 
     // Convert sampled_files to a Vec<String> for owned paths
-    let file_paths: Vec<String> = sampled_files
+    let file_paths: Vec<String> = files
         .iter()
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
@@ -149,7 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Execute exiftool on the sampled files
     println!("Running exiftool...");
-    let exif_data_array = execute_json(&args)?;
+    let mut tool = ExifTool::new()?;
+    let exif_data_array = tool.execute_json(&args)?;
 
     println!("\nCombining JSON results...");
     let combined_json = combine_exif_json(&exif_data_array)?;

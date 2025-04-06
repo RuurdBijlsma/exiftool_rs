@@ -1,10 +1,6 @@
-use crate::parse_fn::binary::BinaryDataField;
 use crate::parse_fn::datetime::MaybeDateTime;
 use chrono::NaiveTime;
 use serde::Deserialize;
-
-pub type ExifOutput = Vec<ExifData>;
-// --- Main Struct ---
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -56,17 +52,18 @@ pub struct CameraMetadata {
     pub camera_indices: Option<u32>,
     pub cameras: Option<String>,             // URI
     pub circle_of_confusion: Option<String>, // String due to "mm" unit
-    pub contrast: Option<String>,            // Could be enum: Normal, Low, High
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub contrast: Option<String>,
     pub depth_map_confidence_uri: Option<String>,
     pub depth_map_depth_uri: Option<String>,
     pub depth_map_far: Option<f64>,
     pub depth_map_focal_table: Option<String>, // Seems like encoded data
     pub depth_map_focal_table_entry_count: Option<u32>,
-    pub depth_map_format: Option<String>, // Could be enum: RangeInverse
-    pub depth_map_item_semantic: Option<String>, // Could be enum: Depth
-    pub depth_map_measure_type: Option<String>, // Could be enum: OpticalAxis
+    pub depth_map_format: Option<String>,
+    pub depth_map_item_semantic: Option<String>,
+    pub depth_map_measure_type: Option<String>,
     pub depth_map_near: Option<f64>,
-    pub depth_map_units: Option<String>, // Could be enum: Diopters
+    pub depth_map_units: Option<String>,
     pub device_model_desc: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::undef_or_float::float", default)]
     pub digital_zoom_ratio: Option<f64>,
@@ -78,20 +75,12 @@ pub struct CameraMetadata {
     #[serde(alias = "FocalLength35efl")]
     pub focal_length_35_efl: Option<String>, // Complex string format
     pub focal_length_in_35mm_format: Option<String>, // String due to "mm" unit
-    #[serde(
-        alias = "HDRPMakerNote",
-        deserialize_with = "crate::parse_fn::binary::binary",
-        default
-    )]
-    pub hdrp_maker_note: Option<BinaryDataField>,
-    #[serde(
-        alias = "HdrPlusMakernote",
-        deserialize_with = "crate::parse_fn::binary::binary",
-        default
-    )]
-    pub hdr_plus_makernote: Option<BinaryDataField>,
+    #[serde(alias = "HDRPMakerNote")]
+    pub hdrp_maker_note: Option<String>,
+    #[serde(alias = "HdrPlusMakernote")]
+    pub hdr_plus_makernote: Option<String>,
     pub hyperfocal_distance: Option<String>, // String due to "m" unit
-    pub image_item_semantic: Option<String>, // Could be enum: Original
+    pub image_item_semantic: Option<String>,
     pub image_item_uri: Option<String>,
     pub imaging_model_distortion: Option<String>, // Encoded?
     pub imaging_model_distortion_count: Option<u32>,
@@ -105,7 +94,7 @@ pub struct CameraMetadata {
     pub imaging_model_skew: Option<f64>,
     #[serde(alias = "LensID")]
     pub lens_id: Option<String>,
-    pub light_source: Option<String>, // Could be enum
+    pub light_source: Option<String>,
     pub make: Option<String>,
     pub max_aperture_value: Option<f64>,
     pub metering_mode: Option<String>,
@@ -118,18 +107,19 @@ pub struct CameraMetadata {
     pub portrait_relighting_light_pos: Option<String>, // Encoded?
     pub portrait_relighting_rendering_options: Option<String>, // Encoded?
     pub profiles: Option<String>, // URI
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub relit_input_image_data: Option<BinaryDataField>,
+
+    pub relit_input_image_data: Option<String>,
     pub relit_input_image_mime: Option<String>, // e.g., "image/jpeg"
-    pub saturation: Option<String>,             // Could be enum: Normal, Low, High
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub saturation: Option<String>,
     #[serde(alias = "ScaleFactor35efl")]
     pub scale_factor_35_efl: Option<f64>,
     pub scene_capture_type: Option<String>,
     pub sensing_method: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub sharpness: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub shot_log_data: Option<BinaryDataField>,
+
+    pub shot_log_data: Option<String>,
     #[serde(alias = "SpecialTypeID")]
     pub special_type_id: Option<String>,
     pub subject_distance: Option<String>, // String due to unit or "inf"
@@ -137,6 +127,7 @@ pub struct CameraMetadata {
     pub trait_: Option<String>, // "Trait" is a keyword, using trait_
     #[serde(alias = "Type")]
     pub camera_type: Option<String>, // Renamed from Type to avoid conflict
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub white_balance: Option<String>, // Or String if more complex values
 }
 
@@ -167,16 +158,13 @@ pub struct ExifToolMetadata {
 pub struct ImageMetadata {
     pub aperture: Option<f64>,
     pub aperture_value: Option<f64>,
-    pub bit_depth: Option<u8>,       // Likely always 24 for JPEG?
-    pub bits_per_sample: Option<u8>, // Usually 8 for JPEG channels
+    pub bit_depth: Option<u8>, // Likely always 24 for JPEG?
+    #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
+    pub bits_per_sample: Option<u32>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub blue_matrix_column: Option<Vec<f64>>,
-    #[serde(
-        alias = "BlueTRC",
-        deserialize_with = "crate::parse_fn::binary::binary",
-        default
-    )]
-    pub blue_trc: Option<BinaryDataField>,
+    #[serde(alias = "BlueTRC")]
+    pub blue_trc: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::undef_or_float::float", default)]
     pub brightness_value: Option<f64>,
     #[serde(alias = "CFAPattern")]
@@ -189,10 +177,12 @@ pub struct ImageMetadata {
     pub color_space: Option<String>,
     pub color_space_data: Option<String>,
     pub comment: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub components_configuration: Option<String>, // e.g., "Y, Cb, Cr, -"
-    pub composite_image: Option<String>,          // e.g., "Composite Image Captured While Shooting"
-    pub compressed_bits_per_pixel: Option<f64>,   // Can be float
-    pub compression: Option<String>,              // e.g., "JPEG (old-style)"
+    pub composite_image: Option<String>, // e.g., "Composite Image Captured While Shooting"
+    #[serde(deserialize_with = "crate::parse_fn::undef_or_float::float", default)]
+    pub compressed_bits_per_pixel: Option<f64>, // Can be float
+    pub compression: Option<String>,     // e.g., "JPEG (old-style)"
     #[serde(alias = "CompressorID")]
     pub compressor_id: Option<String>, // e.g., "avc1"
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
@@ -205,7 +195,7 @@ pub struct ImageMetadata {
     pub cropped_area_top_pixels: Option<u32>,
     #[serde(alias = "CurrentIPTCDigest")]
     pub current_iptc_digest: Option<String>, // Hex string
-    pub custom_rendered: Option<String>, // Could be enum: Custom, Normal
+    pub custom_rendered: Option<String>,
     #[serde(alias = "DOF")]
     pub dof: Option<String>, // Depth of Field string, complex format
     pub dependent_image1_entry_number: Option<u32>,
@@ -213,20 +203,14 @@ pub struct ImageMetadata {
     pub device_attributes: Option<String>,
     pub device_manufacturer: Option<String>,
     pub device_model: Option<String>,
-    #[serde(
-        deserialize_with = "crate::parse_fn::array_or_int::to_array",
-        default
-    )]
+    #[serde(deserialize_with = "crate::parse_fn::array_or_int::to_array", default)]
     pub directory_item_length: Option<Vec<u64>>,
     #[serde(
         deserialize_with = "crate::parse_fn::string_list::string_list",
         default
     )]
     pub directory_item_mime: Option<Vec<String>>, // e.g. ["image/jpeg", "video/mp4"]
-    #[serde(
-        deserialize_with = "crate::parse_fn::array_or_int::to_array",
-        default
-    )]
+    #[serde(deserialize_with = "crate::parse_fn::array_or_int::to_array", default)]
     pub directory_item_padding: Option<Vec<u64>>, // Nested arrays [[0,0]]
     #[serde(
         deserialize_with = "crate::parse_fn::string_list::string_list",
@@ -234,13 +218,16 @@ pub struct ImageMetadata {
     )]
     pub directory_item_semantic: Option<Vec<String>>, // e.g. ["Primary", "MotionPhoto"]
     pub encoding_process: Option<String>, // e.g., "Baseline DCT, Huffman coding"
-    pub exif_byte_order: Option<String>,  // Could be enum: Big-endian, Little-endian
+    pub exif_byte_order: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
     pub exif_image_height: Option<u32>,
+    #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
     pub exif_image_width: Option<u32>,
     pub exif_version: Option<String>, // e.g., "0232"
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub exposure_compensation: Option<String>, // Often 0
-    pub exposure_index: Option<String>, // Often "undef"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub exposure_index: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub exposure_time: Option<String>, // String to handle fractions like "1/518" or numbers like 1
     #[serde(alias = "FNumber")]
@@ -253,12 +240,8 @@ pub struct ImageMetadata {
     pub full_pano_width_pixels: Option<u32>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub green_matrix_column: Option<Vec<f64>>,
-    #[serde(
-        alias = "GreenTRC",
-        deserialize_with = "crate::parse_fn::binary::binary",
-        default
-    )]
-    pub green_trc: Option<BinaryDataField>,
+    #[serde(alias = "GreenTRC")]
+    pub green_trc: Option<String>,
     #[serde(alias = "IPTCDigest")]
     pub iptc_digest: Option<String>, // Hex string (often same as CurrentIPTCDigest)
     #[serde(
@@ -302,9 +285,9 @@ pub struct ImageMetadata {
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub measurement_backing: Option<Vec<f64>>,
     pub measurement_flare: Option<String>, // String due to "%"
-    pub measurement_geometry: Option<String>, // Could be enum
-    pub measurement_illuminant: Option<String>, // Could be enum: D65
-    pub measurement_observer: Option<String>, // Could be enum: CIE 1931
+    pub measurement_geometry: Option<String>,
+    pub measurement_illuminant: Option<String>,
+    pub measurement_observer: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub media_black_point: Option<Vec<f64>>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
@@ -317,9 +300,9 @@ pub struct ImageMetadata {
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub pixel_aspect_ratio: Option<String>, // e.g., "65536:65536"
     pub pose_heading_degrees: Option<f64>,
-    pub primary_platform: Option<String>, // Could be enum
+    pub primary_platform: Option<String>,
     pub profile_cmm_type: Option<String>, // Often empty string
-    pub profile_class: Option<String>,    // Could be enum: Display Device Profile
+    pub profile_class: Option<String>,
     pub profile_connection_space: Option<String>, // e.g., "XYZ "
     pub profile_copyright: Option<String>,
     pub profile_creator: Option<String>,
@@ -335,15 +318,11 @@ pub struct ImageMetadata {
     pub projection_type: Option<String>,        // e.g., "equirectangular"
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub red_matrix_column: Option<Vec<f64>>,
-    #[serde(
-        alias = "RedTRC",
-        deserialize_with = "crate::parse_fn::binary::binary",
-        default
-    )]
-    pub red_trc: Option<BinaryDataField>,
-    pub rendering_intent: Option<String>, // Could be enum: Perceptual
+    #[serde(alias = "RedTRC")]
+    pub red_trc: Option<String>,
+    pub rendering_intent: Option<String>,
     pub resolution_unit: Option<String>,
-    pub scene_type: Option<String>, // Could be enum: Directly photographed
+    pub scene_type: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub shutter_speed: Option<String>, // String to handle fractions like "1/518" or numbers like 1
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
@@ -353,7 +332,7 @@ pub struct ImageMetadata {
     pub source_image_height: Option<u32>,
     pub source_image_width: Option<u32>,
     pub source_photos_count: Option<u32>,
-    pub technology: Option<String>, // Could be enum: Cathode Ray Tube Display
+    pub technology: Option<String>,
     pub thumbnail_length: Option<u32>,
     pub thumbnail_offset: Option<u64>, // Can be large
     #[serde(alias = "UniqueCameraModel")]
@@ -407,7 +386,7 @@ pub struct LocationMetadata {
     #[serde(alias = "GPSImgDirection")]
     pub gps_img_direction: Option<f64>,
     #[serde(alias = "GPSImgDirectionRef")]
-    pub gps_img_direction_ref: Option<String>, // Could be enum: Magnetic North, True North
+    pub gps_img_direction_ref: Option<String>,
     #[serde(alias = "GPSLatitude")]
     pub gps_latitude: Option<String>, // String format deg ' " N/S
     #[serde(alias = "GPSLatitudeRef")]
@@ -476,22 +455,17 @@ pub struct OtherMetadata {
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
 pub struct PreviewMetadata {
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub confidence_map_image: Option<BinaryDataField>,
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub depth_map_image: Option<BinaryDataField>,
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub gain_map_image: Option<BinaryDataField>,
-    #[serde(
-        alias = "MPImage2",
-        deserialize_with = "crate::parse_fn::binary::binary",
-        default
-    )]
-    pub mp_image2: Option<BinaryDataField>,
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub original_image: Option<BinaryDataField>,
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub thumbnail_image: Option<BinaryDataField>,
+    pub confidence_map_image: Option<String>,
+
+    pub depth_map_image: Option<String>,
+
+    pub gain_map_image: Option<String>,
+    #[serde(alias = "MPImage2")]
+    pub mp_image2: Option<String>,
+
+    pub original_image: Option<String>,
+
+    pub thumbnail_image: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -648,23 +622,23 @@ pub struct UnknownMetadata {
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
 pub struct VideoMetadata {
-    pub avg_bitrate: Option<String>,     // String due to unit "Mbps"
-    pub color_primaries: Option<String>, // Could be enum
-    pub color_profiles: Option<String>,  // e.g. "nclx"
+    pub avg_bitrate: Option<String>, // String due to unit "Mbps"
+    pub color_primaries: Option<String>,
+    pub color_profiles: Option<String>, // e.g. "nclx"
     #[serde(
         deserialize_with = "crate::parse_fn::string_list::string_list",
         default
     )]
     pub compatible_brands: Option<Vec<String>>, // e.g. ["isom", "mp42"]
-    pub current_time: Option<String>,    // String due to unit "s"
-    pub duration: Option<String>,        // String due to unit "s" or format "0:02:26"
-    pub graphics_mode: Option<String>,   // e.g., "srcCopy"
+    pub current_time: Option<String>,   // String due to unit "s"
+    pub duration: Option<String>,       // String due to unit "s" or format "0:02:26"
+    pub graphics_mode: Option<String>,  // e.g., "srcCopy"
     pub handler_description: Option<String>, // e.g. "SoundHandle"
-    pub handler_type: Option<String>,    // Could be enum: Audio Track, Video Track
+    pub handler_type: Option<String>,
     pub image_height: Option<u32>,
     pub image_width: Option<u32>,
     pub major_brand: Option<String>, // e.g. "MP4 v2 [ISO 14496-14]"
-    pub matrix_coefficients: Option<String>, // Could be enum: BT.601, BT.709
+    pub matrix_coefficients: Option<String>,
     pub matrix_structure: Option<String>, // e.g., "1 0 0 0 1 0 0 0 1"
     pub media_data_offset: Option<u64>,
     pub media_data_size: Option<u64>,
@@ -672,8 +646,8 @@ pub struct VideoMetadata {
     pub media_header_version: Option<u32>,
     pub media_time_scale: Option<u32>,
     pub minor_version: Option<String>, // e.g., "0.0.0"
-    #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
-    pub motion_photo_video: Option<BinaryDataField>,
+
+    pub motion_photo_video: Option<String>,
     pub movie_header_version: Option<u32>,
     pub next_track_id: Option<u32>,
     #[serde(alias = "OpColor")]
@@ -691,9 +665,9 @@ pub struct VideoMetadata {
     pub track_header_version: Option<u32>,
     #[serde(alias = "TrackID")]
     pub track_id: Option<u32>,
-    pub track_layer: Option<i32>,                 // Can be negative?
-    pub track_volume: Option<String>,             // String due to "%"
-    pub transfer_characteristics: Option<String>, // Could be enum: BT.709
+    pub track_layer: Option<i32>,     // Can be negative?
+    pub track_volume: Option<String>, // String due to "%"
+    pub transfer_characteristics: Option<String>,
     pub video_frame_rate: Option<f64>,
     pub video_full_range_flag: Option<String>, // Full, Limited
 }

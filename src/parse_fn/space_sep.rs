@@ -1,5 +1,5 @@
-use serde::{Deserialize, Deserializer};
 use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::fmt;
 use std::str::FromStr;
 
@@ -20,7 +20,8 @@ where
         where
             E: de::Error,
         {
-            value.split_whitespace()
+            value
+                .split_whitespace()
                 .map(f64::from_str)
                 .collect::<Result<Vec<f64>, _>>()
                 .map(Some)
@@ -41,9 +42,8 @@ where
             let s = Option::<String>::deserialize(deserializer)?;
             match s {
                 Some(s) => {
-                    let result: Result<Vec<f64>, _> = s.split_whitespace()
-                        .map(|num_str| f64::from_str(num_str))
-                        .collect();
+                    let result: Result<Vec<f64>, _> =
+                        s.split_whitespace().map(f64::from_str).collect();
                     result.map(Some).map_err(de::Error::custom)
                 }
                 None => Ok(None),

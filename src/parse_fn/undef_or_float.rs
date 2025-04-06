@@ -17,9 +17,9 @@ where
                 if s == "undef" {
                     Ok(None)
                 } else {
-                    s.parse::<f64>()
-                        .map(Some)
-                        .map_err(|_| de::Error::custom(format!("string can't be parsed to f64: {}", s)))
+                    s.parse::<f64>().map(Some).map_err(|_| {
+                        de::Error::custom(format!("string can't be parsed to f64: {}", s))
+                    })
                 }
             }
             Value::Number(n) => n

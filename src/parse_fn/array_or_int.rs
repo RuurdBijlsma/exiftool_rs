@@ -72,5 +72,7 @@ where
         }
     }
 
-    Ok(Some(deserializer.deserialize_any(DirectoryItemLengthVisitor)?))
+    Ok(Some(
+        deserializer.deserialize_any(DirectoryItemLengthVisitor)?,
+    ))
 }

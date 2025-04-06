@@ -6,7 +6,6 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 pub struct ExifTool {
-    timeout: Duration,
     stdin: BufWriter<ChildStdin>,
     stdout: BufReader<ChildStdout>,
     error_receiver: Receiver<String>,
@@ -14,11 +13,8 @@ pub struct ExifTool {
 }
 
 impl ExifTool {
+    /// Create an instance of ExifTool. The process will stay open until the instance is dropped.
     pub fn new() -> Result<Self, ExifToolError> {
-        Self::with_timeout(Duration::from_secs(5))
-    }
-
-    pub fn with_timeout(timeout: Duration) -> Result<Self, ExifToolError> {
         let mut child = std::process::Command::new("exiftool")
             .arg("-stay_open")
             .arg("True")
@@ -29,30 +25,30 @@ impl ExifTool {
             .stderr(std::process::Stdio::piped())
             .spawn()?;
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to capture stdin")
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to capture stdout")
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| std::io::Error::other("Failed to capture stdin"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| std::io::Error::other("Failed to capture stdout"))?;
         // Capture stderr only once.
-        let stderr = child.stderr.take().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to capture stderr")
-        })?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| std::io::Error::other("Failed to capture stdin"))?;
 
         // Create a channel and spawn a thread to read stderr continuously.
         let (error_sender, error_receiver): (Sender<String>, Receiver<String>) = mpsc::channel();
         let stderr_reader = BufReader::new(stderr);
         thread::spawn(move || {
-            for line in stderr_reader.lines() {
-                if let Ok(l) = line {
-                    let _ = error_sender.send(l);
-                }
+            for line in stderr_reader.lines().map_while(Result::ok) {
+                let _ = error_sender.send(line);
             }
         });
 
         Ok(Self {
-            timeout,
             stdin: BufWriter::new(stdin),
             stdout: BufReader::new(stdout),
             error_receiver,
@@ -122,8 +118,10 @@ impl ExifTool {
     }
 
     /// Executes the given command arguments and returns the raw response bytes.
-    /// After reading stdout, it checks the shared error buffer for any stderr output.
-    pub fn execute_bytes(&mut self, cmd_args: &[&str]) -> Result<Vec<u8>, ExifToolError> {
+    /// The command executed by this function is as follows:
+    ///
+    /// `exiftool {...args}`
+    pub fn execute_raw(&mut self, cmd_args: &[&str]) -> Result<Vec<u8>, ExifToolError> {
         // Clear previous errors
         let _: Vec<String> = self.error_receiver.try_iter().collect();
         // Send command to exiftool.
@@ -136,7 +134,7 @@ impl ExifTool {
         // Read stdout response until the ready marker.
         let stdout_bytes = self.read_response()?;
 
-        if stdout_bytes.len() == 0 {
+        if stdout_bytes.is_empty() {
             let err_lines = self.get_error_lines()?;
             if err_lines.is_empty() {
                 return Err(ExifToolError::EmptyResponse);
@@ -152,14 +150,62 @@ impl ExifTool {
         Ok(stdout_bytes)
     }
 
+    /// Execute any command and get the result in JSON form.
+    /// The command executed by this function is as follows:
+    ///
+    /// `exiftool -json {...args}`
+    ///
+    /// The output will be a json array of objects, each object describing one input file.
+    /// You can pass as many files as you want to this.
+    ///
+    /// For example:
+    /// ```rs
+    /// let files = vec![file1, file2, file3];
+    /// let value = execute_json(files)?;
+    /// ```
+    ///
+    /// You can tell exiftool to structure the output by grouping into categories with `-g1` or `-g2`.
     pub fn execute_json(&mut self, args: &[&str]) -> Result<Value, ExifToolError> {
         let mut cmd_args = vec!["-json"];
         cmd_args.extend_from_slice(args);
 
-        let output_bytes = self.execute_bytes(&cmd_args)?;
+        let output_bytes = self.execute_raw(&cmd_args)?;
         let output = String::from_utf8(output_bytes)?;
         let value: Value = serde_json::from_str(&output)?;
         Ok(value)
+    }
+
+    /// Extract bytes from a binary field.
+    /// The command executed by this function is as follows:
+    ///
+    /// `exiftool {file_path} -b -{field_name}`
+    pub fn binary_field(
+        &mut self,
+        file_path: &str,
+        field_name: &str,
+    ) -> Result<Vec<u8>, ExifToolError> {
+        self.execute_raw(&vec![file_path, "-b", &format!("-{}", field_name)])
+    }
+
+    /// Get JSON metadata for a single file. This will return a single json object.
+    /// The command executed by this function is as follows:
+    ///
+    /// `exiftool -json {file_path} {...extra_args}`
+    ///
+    /// You can tell exiftool to structure the output by grouping into categories with `-g1` or `-g2`.
+    pub fn file_metadata(
+        &mut self,
+        file_path: &str,
+        extra_args: &[&str],
+    ) -> Result<Value, ExifToolError> {
+        let mut args = vec![file_path];
+        args.extend_from_slice(extra_args);
+        let result = self.execute_json(&args)?;
+        if let Some(single) = result.as_array().and_then(|a| a.get(0)) {
+            Ok(single.clone())
+        } else {
+            Err(ExifToolError::UnexpectedFormat)
+        }
     }
 
     pub fn close(&mut self) -> Result<(), ExifToolError> {
@@ -180,10 +226,10 @@ impl Drop for ExifTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::test_helpers::list_files_recursive;
     use image::ImageReader;
     use std::io::Cursor;
-    use std::path::{Path};
-    use crate::utils::get_files_in_dir;
+    use std::path::Path;
 
     #[test]
     fn test_basic_functionality() -> Result<(), ExifToolError> {
@@ -193,13 +239,13 @@ mod tests {
         assert!(Path::new(file).exists(), "Test file doesn't exist");
 
         // First query
-        let result = exiftool.execute_json(&[file])?;
-        assert!(result.is_array());
+        let result = exiftool.file_metadata(file, &[])?;
+        assert!(result.is_object());
         println!("First result: {:#?}", result);
 
         // Second query with same process
-        let result2 = exiftool.execute_json(&["-createdate", file])?;
-        assert!(result2.is_array());
+        let result2 = exiftool.file_metadata(file, &["-createdate"])?;
+        assert!(result2.is_object());
         println!("Second result: {:#?}", result2);
         Ok(())
     }
@@ -208,8 +254,8 @@ mod tests {
     fn test_file_not_found() -> Result<(), ExifToolError> {
         let filename = "nonexistent.jpg";
         let mut exiftool = ExifTool::new()?;
-        let result = exiftool.execute_bytes(&[filename]);
-        assert!(!result.is_ok());
+        let result = exiftool.execute_raw(&[filename]);
+        assert!(result.is_err());
 
         match result {
             Err(ExifToolError::FileNotFound(f)) => {
@@ -224,10 +270,11 @@ mod tests {
     fn test_binary_response() -> Result<(), ExifToolError> {
         let mut exiftool = ExifTool::new()?;
         let file = "test_data/IMG_20170801_162043.jpg";
-        let result = exiftool.execute_bytes(&["-b", "-ThumbnailImage", file]);
+        let result = exiftool.binary_field(file, "ThumbnailImage");
 
         match result {
             Ok(data) => {
+                dbg!(data.len());
                 // Verify it's a valid JPEG
                 let cursor = Cursor::new(&data);
                 let format = ImageReader::new(cursor)
@@ -252,8 +299,8 @@ mod tests {
         let test_dir = "test_data/exiftool_images";
 
         // Collect all files in directory (non-recursive)
-        let files = get_files_in_dir(test_dir)?;
-        assert!(files.len() > 0);
+        let files = list_files_recursive(test_dir.as_ref())?;
+        assert!(!files.is_empty());
 
         let mut exiftool = ExifTool::new()?;
 
@@ -262,16 +309,16 @@ mod tests {
             println!("\nTesting: {}", file_path);
 
             // Single full metadata extraction per file
-            let result = exiftool.execute_json(&[file_path.as_ref()])?;
+            let result = exiftool.file_metadata(&file_path, &[])?;
 
             // Basic validation
             assert!(
-                result.is_array(),
+                result.is_object(),
                 "Expected JSON array for file {}",
                 file_path
             );
             assert!(
-                !result.as_array().unwrap().is_empty(),
+                !result.as_object().unwrap().is_empty(),
                 "Empty result for file {}",
                 file_path
             );

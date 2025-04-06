@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+        include:
+          - os: ubuntu-latest
+            exiftool-package: libimage-exiftool-perl
+          - os: macos-latest
+            exiftool-package: exiftool
+          - os: windows-latest
+            exiftool-package: exiftool
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install exiftool
+      - name: Install exiftool (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.exiftool-package }}
+
+      - name: Install exiftool (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install ${{ matrix.exiftool-package }}
+
+      - name: Install exiftool (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install ${{ matrix.exiftool-package }}
+
+      # Rust setup
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Format check
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      # Strict Clippy checks
+      - name: Run Clippy (strict)
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings \
+          -A clippy::missing_safety_docs \  # Remove if you have unsafe code
+          -A clippy::missing_errors_doc \   # Remove if you want doc requirements
+          -A clippy::missing_panics_doc     # Remove if you want doc requirements
+
+      # Build in release mode to catch more potential issues
+      - name: Build (release)
+        run: cargo build --release --verbose
+
+      # Run tests
+      - name: Run tests
+        run: cargo test --verbose
+
+      # Documentation check
+      - name: Check documentation
+        run: cargo doc --no-deps --document-private-items
