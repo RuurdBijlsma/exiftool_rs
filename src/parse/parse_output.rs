@@ -29,13 +29,9 @@ mod tests {
     async fn test_successful_deserialization() {
         let mut exiftool = ExifTool::new().unwrap();
         let filename = "IMG_20170801_162043.jpg";
-        // let json = exiftool
-        //     .execute_json(&["-g2", &format!("test_data/{}", filename)])
-        //     .unwrap();
         let json = exiftool
-            .execute_json(&["-g2", "C:/Users/Ruurd/Pictures/photos/PXL_20240117_164854250~2.jpg"])
+            .execute_json(&["-g2", &format!("test_data/{}", filename)])
             .unwrap();
-        dbg!(&json);
 
         let result: Result<ExifOutput, _> = parse_output(&json);
         dbg!(&result);

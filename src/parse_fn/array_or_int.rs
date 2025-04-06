@@ -14,6 +14,15 @@ where
             formatter.write_str("a number or an array of numbers (or nested arrays) representing directory item lengths")
         }
 
+        // Optionally, if the JSON was just a single number (not wrapped in an array),
+        // handle that case as well.
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(vec![value])
+        }
+
         fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
         where
             A: SeqAccess<'de>,
@@ -60,15 +69,6 @@ where
                 }
             }
             Ok(values)
-        }
-
-        // Optionally, if the JSON was just a single number (not wrapped in an array),
-        // handle that case as well.
-        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(vec![value])
         }
     }
 

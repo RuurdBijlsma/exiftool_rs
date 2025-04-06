@@ -16,6 +16,17 @@ where
             formatter.write_str("a string containing space-separated floating-point numbers")
         }
 
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            value.split_whitespace()
+                .map(f64::from_str)
+                .collect::<Result<Vec<f64>, _>>()
+                .map(Some)
+                .map_err(de::Error::custom)
+        }
+
         fn visit_none<E>(self) -> Result<Self::Value, E>
         where
             E: de::Error,
@@ -37,17 +48,6 @@ where
                 }
                 None => Ok(None),
             }
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            value.split_whitespace()
-                .map(f64::from_str)
-                .collect::<Result<Vec<f64>, _>>()
-                .map(Some)
-                .map_err(de::Error::custom)
         }
     }
 

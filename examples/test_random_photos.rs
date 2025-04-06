@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dir_path = PathBuf::from("C:/Users/Ruurd/Pictures/photos");
 
     // Number of random files to sample
-    let sample_size = 50000;
+    let sample_size = 500;
 
     // Read directory and collect all regular files
     let all_files: Vec<PathBuf> = fs::read_dir(&dir_path)?
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     dbg!(&all_files.len());
-    dbg!(&success_files);
+    dbg!(&success_files.len());
 
     let mut files = subtract_vecs(all_files, success_files);
 

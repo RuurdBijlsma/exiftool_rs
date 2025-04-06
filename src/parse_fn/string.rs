@@ -15,22 +15,6 @@ where
             formatter.write_str("a string or a number")
         }
 
-        // Handle JSON strings
-        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(value.to_owned())
-        }
-
-        // Handle JSON strings (owned)
-        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(value)
-        }
-
         // Handle JSON numbers (integers) - Convert to String
         fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
         where
@@ -54,6 +38,22 @@ where
         {
             // Decide on float formatting if needed, simple .to_string() is often fine
             Ok(value.to_string())
+        }
+
+        // Handle JSON strings
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_owned())
+        }
+
+        // Handle JSON strings (owned)
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value)
         }
 
         // Optional: Handle booleans if they might occur, and you want them as strings
