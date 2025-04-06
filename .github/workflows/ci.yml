@@ -66,9 +66,9 @@ jobs:
       - name: Run Clippy (strict)
         run: |
           cargo clippy --all-targets --all-features -- -D warnings \
-          -A clippy::missing_safety_docs \  # Remove if you have unsafe code
-          -A clippy::missing_errors_doc \   # Remove if you want doc requirements
-          -A clippy::missing_panics_doc     # Remove if you want doc requirements
+          -A clippy::missing_safety_docs \
+          -A clippy::missing_errors_doc \
+          -A clippy::missing_panics_doc
 
       # Build in release mode to catch more potential issues
       - name: Build (release)
