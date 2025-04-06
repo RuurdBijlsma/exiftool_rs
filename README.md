@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/exiftool.svg)](https://crates.io/crates/exiftool) <!-- TODO: Update badge when published -->
 [![Docs.rs](https://docs.rs/exiftool/badge.svg)](https://docs.rs/exiftool) <!-- TODO: Update badge when published -->
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE.md)
 
 Rust wrapper for Phil Harvey's [ExifTool](https://exiftool.org/) command-line application.
 
