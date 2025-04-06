@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, NaiveTime};
+use chrono::NaiveTime;
 use serde::{self, Deserialize, Deserializer};
 
 pub fn timestamp<'de, D>(deserializer: D) -> Result<Option<NaiveTime>, D::Error>

@@ -1,7 +1,4 @@
-use serde::{
-    de::{self, Deserializer, SeqAccess, Unexpected, Visitor},
-    Deserialize,
-};
+use serde::de::{self, Deserializer, SeqAccess, Unexpected, Visitor};
 use std::fmt;
 
 pub fn to_array<'de, D>(deserializer: D) -> Result<Option<Vec<u64>>, D::Error>

@@ -1,6 +1,6 @@
 use crate::parse_fn::binary::BinaryDataField;
 use crate::parse_fn::datetime::MaybeDateTime;
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::NaiveTime;
 use serde::Deserialize;
 
 pub type ExifOutput = Vec<ExifData>;
@@ -126,7 +126,8 @@ pub struct CameraMetadata {
     pub scale_factor_35_efl: Option<f64>,
     pub scene_capture_type: Option<String>,
     pub sensing_method: Option<String>,
-    pub sharpness: Option<String>, // Could be enum: Normal, Soft, Hard
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub sharpness: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::binary::binary", default)]
     pub shot_log_data: Option<BinaryDataField>,
     #[serde(alias = "SpecialTypeID")]
@@ -212,24 +213,25 @@ pub struct ImageMetadata {
     pub device_attributes: Option<String>,
     pub device_manufacturer: Option<String>,
     pub device_model: Option<String>,
-    // DirectoryItemLength can be a single number or [u64, u64]
-    // Serde might handle [0, 123] into Vec<u64> automatically.
-    // If it fails, use a custom deserializer or Value.
     #[serde(
-        alias = "DirectoryItemLength",
         deserialize_with = "crate::parse_fn::array_or_int::to_array",
         default
     )]
     pub directory_item_length: Option<Vec<u64>>,
-    #[serde(alias = "DirectoryItemMime")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::string_list::string_list",
+        default
+    )]
     pub directory_item_mime: Option<Vec<String>>, // e.g. ["image/jpeg", "video/mp4"]
     #[serde(
-        alias = "DirectoryItemPadding",
         deserialize_with = "crate::parse_fn::array_or_int::to_array",
         default
     )]
     pub directory_item_padding: Option<Vec<u64>>, // Nested arrays [[0,0]]
-    #[serde(alias = "DirectoryItemSemantic")]
+    #[serde(
+        deserialize_with = "crate::parse_fn::string_list::string_list",
+        default
+    )]
     pub directory_item_semantic: Option<Vec<String>>, // e.g. ["Primary", "MotionPhoto"]
     pub encoding_process: Option<String>, // e.g., "Baseline DCT, Huffman coding"
     pub exif_byte_order: Option<String>,  // Could be enum: Big-endian, Little-endian
@@ -360,13 +362,21 @@ pub struct ImageMetadata {
     pub user_comment: Option<String>, // Often contains structured text
     pub version: Option<f64>,         // Usually 1.0 for UserComment version? Check context.
     pub viewing_cond_desc: Option<String>,
-    #[serde(alias = "XResolution")]
+    #[serde(
+        alias = "XResolution",
+        deserialize_with = "crate::parse_fn::undef_or_float::float",
+        default
+    )]
     pub x_resolution: Option<f64>,
     #[serde(alias = "YCbCrPositioning")]
     pub y_cb_cr_positioning: Option<String>,
     #[serde(alias = "YCbCrSubSampling")]
     pub y_cb_cr_sub_sampling: Option<String>, // e.g., "YCbCr4:2:0 (2 2)"
-    #[serde(alias = "YResolution")]
+    #[serde(
+        alias = "YResolution",
+        deserialize_with = "crate::parse_fn::undef_or_float::float",
+        default
+    )]
     pub y_resolution: Option<f64>,
 }
 
@@ -384,13 +394,13 @@ pub struct LocationMetadata {
     pub gps_dop: Option<f64>, // GPS Degree of Precision
     #[serde(
         alias = "GPSDateStamp",
-        deserialize_with = "crate::parse_fn::date::date",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )] // YYYY:MM:DD
-    pub gps_date_stamp: Option<NaiveDate>,
+    pub gps_date_stamp: Option<MaybeDateTime>,
     #[serde(
         alias = "GPSDateTime",
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )] // Includes Z
     pub gps_date_time: Option<MaybeDateTime>,
@@ -488,47 +498,56 @@ pub struct PreviewMetadata {
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
 pub struct TimeMetadata {
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub date_created: Option<NaiveDateTime>, // Seems redundant with CreateDate
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub create_date: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub date_created: Option<MaybeDateTime>, // Seems redundant with CreateDate
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub date_time_created: Option<MaybeDateTime>, // Includes timezone
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub date_time_original: Option<NaiveDateTime>,
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub date_time_original: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub file_access_date: Option<MaybeDateTime>,
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub file_create_date: Option<MaybeDateTime>,
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub file_modify_date: Option<MaybeDateTime>,
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     // Example: "2015:07:11 11:37:41.746Z"
-    pub first_photo_date: Option<MaybeDateTime>, // Or NaiveDateTime if Z is not always there
+    pub first_photo_date: Option<MaybeDateTime>, // Or MaybeDateTime if Z is not always there
     #[serde(
         alias = "GPSDateStamp",
-        deserialize_with = "crate::parse_fn::date::date",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )] // YYYY:MM:DD
-    pub gps_date_stamp: Option<NaiveDate>, // Duplicated in Location, keep consistent
+    pub gps_date_stamp: Option<MaybeDateTime>, // Duplicated in Location, keep consistent
     #[serde(
         alias = "GPSDateTime",
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )] // Includes Z
     pub gps_date_time: Option<MaybeDateTime>, // Duplicated in Location
@@ -539,36 +558,48 @@ pub struct TimeMetadata {
     )] // HH:MM:SS
     pub gps_time_stamp: Option<NaiveTime>, // Duplicated in Location
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     // Example: "2015:07:11 11:38:14.223Z"
-    pub last_photo_date: Option<MaybeDateTime>, // Or NaiveDateTime
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub media_create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub media_modify_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub modify_date: Option<NaiveDateTime>,
+    pub last_photo_date: Option<MaybeDateTime>, // Or MaybeDateTime
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub media_create_date: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub media_modify_date: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub modify_date: Option<MaybeDateTime>,
     pub offset_time: Option<String>, // e.g., "+02:00"
     pub offset_time_digitized: Option<String>,
     pub offset_time_original: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub profile_date_time: Option<NaiveDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub profile_date_time: Option<MaybeDateTime>,
     // SubSec fields often duplicate the main date but add precision.
     // Assuming your naive parser handles ".ffffff" suffix.
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub sub_sec_create_date: Option<MaybeDateTime>,
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub sub_sec_date_time_original: Option<MaybeDateTime>,
     #[serde(
-        deserialize_with = "crate::parse_fn::datetime::possible_timezone",
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
         default
     )]
     pub sub_sec_modify_date: Option<MaybeDateTime>,
@@ -580,10 +611,16 @@ pub struct TimeMetadata {
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub sub_sec_time_original: Option<String>,
     pub time_created: Option<String>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub track_create_date: Option<NaiveDateTime>,
-    #[serde(deserialize_with = "crate::parse_fn::datetime::naive", default)]
-    pub track_modify_date: Option<NaiveDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub track_create_date: Option<MaybeDateTime>,
+    #[serde(
+        deserialize_with = "crate::parse_fn::datetime::guess_datetime",
+        default
+    )]
+    pub track_modify_date: Option<MaybeDateTime>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -614,6 +651,10 @@ pub struct VideoMetadata {
     pub avg_bitrate: Option<String>,     // String due to unit "Mbps"
     pub color_primaries: Option<String>, // Could be enum
     pub color_profiles: Option<String>,  // e.g. "nclx"
+    #[serde(
+        deserialize_with = "crate::parse_fn::string_list::string_list",
+        default
+    )]
     pub compatible_brands: Option<Vec<String>>, // e.g. ["isom", "mp42"]
     pub current_time: Option<String>,    // String due to unit "s"
     pub duration: Option<String>,        // String due to unit "s" or format "0:02:26"

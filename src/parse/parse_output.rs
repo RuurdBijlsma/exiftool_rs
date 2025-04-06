@@ -16,7 +16,7 @@ where
 mod tests {
     use super::*;
     use crate::executors::stay_open::ExifTool;
-    use crate::structs::poging_drie::ExifOutput;
+    use crate::structs::g2::ExifOutput;
     use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
@@ -33,7 +33,7 @@ mod tests {
         //     .execute_json(&["-g2", &format!("test_data/{}", filename)])
         //     .unwrap();
         let json = exiftool
-            .execute_json(&["-g2", "E:/Backup/Photos/photos/photos/PXL_20210717_201946427.PORTRAIT.jpg"])
+            .execute_json(&["-g2", "C:/Users/Ruurd/Pictures/photos/PXL_20240117_164854250~2.jpg"])
             .unwrap();
         dbg!(&json);
 

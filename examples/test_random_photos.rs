@@ -1,24 +1,48 @@
 use exiftool_wrapper::executors::stay_open::ExifTool;
 use exiftool_wrapper::parse::parse_output::parse_output;
-use exiftool_wrapper::structs::poging_drie::ExifOutput;
+use exiftool_wrapper::structs::g2::ExifOutput;
 use rand::seq::SliceRandom;
-use std::fs::{self};
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::fs::{self, File, OpenOptions};
+use std::io;
+use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
+
+fn subtract_vecs(vec1: Vec<PathBuf>, vec2: Vec<PathBuf>) -> Vec<PathBuf> {
+    let set2: HashSet<_> = vec2.into_iter().collect();
+    vec1.into_iter().filter(|p| !set2.contains(p)).collect()
+}
 
 // Using Result<(), Box<dyn std::error::Error>> for main to easily handle errors
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let success_files_path = Path::new("examples/successes.txt");
+    let success_files: Vec<PathBuf> = if success_files_path.exists() {
+        let file = File::open(success_files_path)?;
+        let reader = io::BufReader::new(file);
+        reader.lines().map(|line| Path::new(&line.unwrap()).to_path_buf()).collect()
+    } else {
+        Vec::<PathBuf>::new()
+    };
+
     // Hardcoded directory path
-    let dir_path = PathBuf::from("E:/Backup/Photos/photos/photos");
+    let dir_path = PathBuf::from("C:/Users/Ruurd/Pictures/photos");
 
     // Number of random files to sample
-    let sample_size = 5000;
+    let sample_size = 50000;
 
     // Read directory and collect all regular files
-    let mut files: Vec<PathBuf> = fs::read_dir(&dir_path)?
+    let all_files: Vec<PathBuf> = fs::read_dir(&dir_path)?
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
         .filter(|path| path.is_file())
         .collect();
+
+    dbg!(&all_files.len());
+    dbg!(&success_files);
+
+    let mut files = subtract_vecs(all_files, success_files);
+
+    dbg!(&files.len());
 
     if files.is_empty() {
         println!("No files found in the directory: {}", dir_path.display());
@@ -32,8 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     } else {
         // Shuffle the files
-        // Use thread_rng() for simplicity unless specific seeding is needed
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         files.shuffle(&mut rng);
     }
 
@@ -56,19 +79,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
 
-    // Start with the arguments for exiftool
-    // -g2: Group tags by family 2 (more specific groups like Camera, Image, Location)
-    let mut args: Vec<&str> = vec!["-g2"];
+    let mut file_handle = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(success_files_path)?;
 
-    // Add file paths
-    args.extend(file_paths.iter().map(|s| s.as_str()));
-
-    // Execute exiftool on the sampled files
-    println!("Running exiftool...");
     let mut tool = ExifTool::new()?;
-    let exif_json = tool.execute_json(&args)?;
-    let parsed = parse_output::<ExifOutput>(&exif_json)?;
-    dbg!(&parsed.len());
+    for file in file_paths {
+        // Start with the arguments for exiftool
+        // -g2: Group tags by family 2 (more specific groups like Camera, Image, Location)
+        let mut args: Vec<&str> = vec!["-g2"];
+
+        // Add file paths
+        args.push(&file);
+
+        // Execute exiftool on the sampled files
+        println!("Running exiftool... {}", file);
+        let exif_json = tool.execute_json(&args)?;
+        parse_output::<ExifOutput>(&exif_json)?;
+        writeln!(file_handle, "{}", &file)?;
+    }
 
     Ok(())
 }
