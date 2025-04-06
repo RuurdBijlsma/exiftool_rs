@@ -1,10 +1,18 @@
 [package]
 name = "exiftool"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "A wrapper around Phil Harvey's powerful ExifTool."
-homepage = "https://github.com/ruurdbijlsma/exiftool"
+homepage = "https://github.com/ruurdbijlsma/exiftool-rs"
+repository = "https://github.com/ruurdbijlsma/exiftool-rs"
+readme = "README.md"
+keywords = ["exif", "exiftool", "video", "photo"]
+exclude = [
+    "test_data",
+    ".github",
+    "checks",
+]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive", "serde_derive"] }
