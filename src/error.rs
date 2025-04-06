@@ -1,4 +1,3 @@
-use serde_path_to_error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

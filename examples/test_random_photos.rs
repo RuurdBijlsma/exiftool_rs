@@ -1,6 +1,6 @@
-use exiftool::ExifTool;
 use exiftool::parse_output;
 use exiftool::structs::g2::ExifData;
+use exiftool::ExifTool;
 use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io;
