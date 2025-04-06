@@ -1,6 +1,6 @@
-use exiftool_wrapper::exiftool::ExifTool;
-use exiftool_wrapper::parse::parse_output::parse_output;
-use exiftool_wrapper::structs::g2::ExifData;
+use exiftool::ExifTool;
+use exiftool::parse_output;
+use exiftool::structs::g2::ExifData;
 use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io;
