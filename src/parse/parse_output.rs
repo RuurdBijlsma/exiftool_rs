@@ -51,7 +51,7 @@ mod tests {
                 .unwrap(),
             vec![0.14307, 0.06061, 0.7141]
         );
-        let bytes = exiftool.binary_field(&file_path, &"BlueTRC")?;
+        let bytes = exiftool.binary_field(&file_path, "BlueTRC")?;
         dbg!(bytes.len());
 
         Ok(())

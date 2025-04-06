@@ -184,7 +184,7 @@ impl ExifTool {
         file_path: &str,
         field_name: &str,
     ) -> Result<Vec<u8>, ExifToolError> {
-        self.execute_raw(&vec![file_path, "-b", &format!("-{}", field_name)])
+        self.execute_raw(&[file_path, "-b", &format!("-{}", field_name)])
     }
 
     /// Get JSON metadata for a single file. This will return a single json object.
@@ -201,7 +201,7 @@ impl ExifTool {
         let mut args = vec![file_path];
         args.extend_from_slice(extra_args);
         let result = self.execute_json(&args)?;
-        if let Some(single) = result.as_array().and_then(|a| a.get(0)) {
+        if let Some(single) = result.as_array().and_then(|a| a.first()) {
             Ok(single.clone())
         } else {
             Err(ExifToolError::UnexpectedFormat)
