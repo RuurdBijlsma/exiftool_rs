@@ -66,7 +66,6 @@ jobs:
       - name: Run Clippy (strict)
         run: |
           cargo clippy --all-targets --all-features -- -D warnings \
-          -A clippy::missing_safety_docs \
           -A clippy::missing_errors_doc \
           -A clippy::missing_panics_doc
 

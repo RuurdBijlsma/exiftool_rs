@@ -7,11 +7,16 @@ where
 {
     struct PermissiveU32Visitor;
 
-    impl<'de> Visitor<'de> for PermissiveU32Visitor {
+    impl Visitor<'_> for PermissiveU32Visitor {
         type Value = Option<u32>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             formatter.write_str("any value that can be loosely interpreted as a u32")
+        }
+
+        // For any other type, return None
+        fn visit_bool<E: Error>(self, _: bool) -> Result<Self::Value, E> {
+            Ok(None)
         }
 
         fn visit_i64<E: Error>(self, value: i64) -> Result<Self::Value, E> {
@@ -43,11 +48,6 @@ where
 
         fn visit_string<E: Error>(self, value: String) -> Result<Self::Value, E> {
             self.visit_str(&value)
-        }
-
-        // For any other type, return None
-        fn visit_bool<E: Error>(self, _: bool) -> Result<Self::Value, E> {
-            Ok(None)
         }
 
         fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
