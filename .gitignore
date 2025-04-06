@@ -1,3 +1,4 @@
 /target
 .idea
-examples/example_output
+examples/example_output/*
+!examples/example_output/_
