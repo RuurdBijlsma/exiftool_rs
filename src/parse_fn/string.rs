@@ -1,22 +1,5 @@
 use serde::de::{self, Deserializer, SeqAccess, Visitor};
 use std::fmt;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-enum StringOrNum {
-    String(String),
-    Int(i64),
-    Float(f64),
-}
-impl fmt::Display for StringOrNum {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StringOrNum::String(s) => write!(f, "{}", s),
-            StringOrNum::Int(i) => write!(f, "{}", i),
-            StringOrNum::Float(n) => write!(f, "{}", n),
-        }
-    }
-}
 
 // Helper function to deserialize either a string, number, or sequence into a String
 pub fn string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
@@ -81,7 +64,7 @@ where
             A: SeqAccess<'de>,
         {
             let mut elements = Vec::new();
-            while let Some(element) = seq.next_element::<StringOrNum>()? {
+            while let Some(element) = seq.next_element::<String>()? {
                 elements.push(element.to_string());
             }
             Ok(elements.join(", "))

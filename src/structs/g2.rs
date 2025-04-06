@@ -71,7 +71,7 @@ pub struct CameraMetadata {
     pub exposure_mode: Option<String>,
     pub exposure_program: Option<String>,
     pub flash: Option<String>,
-    pub flash_energy: Option<f64>,    // Assuming float, likely 0
+    pub flash_energy: Option<f64>, // Assuming float, likely 0
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub focal_length: Option<String>, // String due to "mm" unit
     #[serde(alias = "FocalLength35efl")]

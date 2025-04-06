@@ -47,25 +47,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files = list_files_recursive(&dir_path)?;
     let todo_files = subtract_vecs(files, success_files);
 
-    // Convert sampled_files to a Vec<String> for owned paths
-    let file_paths: Vec<String> = todo_files
-        .iter()
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect();
-
     let mut file_handle = OpenOptions::new()
         .append(true)
         .create(true)
         .open(success_files_path)?;
 
     let mut tool = ExifTool::new()?;
-    for file in file_paths {
+    for file in todo_files {
         // Start with the arguments for exiftool
         // -g2: Group tags by family 2 (more specific groups like Camera, Image, Location)
-        println!("Running exiftool... {}", file);
+        println!("Running exiftool... {}", &file.display());
         let exif_json = tool.file_metadata(&file, &["-g2"])?;
         parse_output::<ExifData>(&exif_json)?;
-        writeln!(file_handle, "{}", &file)?;
+        writeln!(file_handle, "{}", &file.display())?;
     }
 
     Ok(())

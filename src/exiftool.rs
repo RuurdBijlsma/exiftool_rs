@@ -187,11 +187,7 @@ impl ExifTool {
         field_name: &str,
     ) -> Result<Vec<u8>, ExifToolError> {
         let path_str = file_path.to_string_lossy();
-        self.execute_raw(&[
-            path_str.as_ref(),
-            "-b",
-            &format!("-{}", field_name),
-        ])
+        self.execute_raw(&[path_str.as_ref(), "-b", &format!("-{}", field_name)])
     }
 
     /// Get JSON metadata for a single file. This will return a single json object.
@@ -319,7 +315,11 @@ mod tests {
             let result = exiftool.file_metadata(&file, &[])?;
 
             // Basic validation
-            assert!(result.is_object(), "Expected JSON array for file {}", &file.display());
+            assert!(
+                result.is_object(),
+                "Expected JSON array for file {}",
+                &file.display()
+            );
             assert!(
                 !result.as_object().unwrap().is_empty(),
                 "Empty result for file {}",

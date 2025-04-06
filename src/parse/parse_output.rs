@@ -33,7 +33,7 @@ mod tests {
         let filename = "IMG_20170801_162043.jpg";
         let file_path_str = format!("test_data/{}", filename);
         let file_path = Path::new(&file_path_str);
-        let json = exiftool.file_metadata(&file_path, &["-g2"])?;
+        let json = exiftool.file_metadata(file_path, &["-g2"])?;
 
         let result: ExifData = parse_output(&json)?;
         dbg!(&result);
@@ -54,7 +54,7 @@ mod tests {
                 .unwrap(),
             vec![0.14307, 0.06061, 0.7141]
         );
-        let bytes = exiftool.binary_field(&file_path, "BlueTRC")?;
+        let bytes = exiftool.binary_field(file_path, "BlueTRC")?;
         dbg!(bytes.len());
 
         Ok(())
@@ -83,11 +83,7 @@ mod tests {
         // Collect all files in directory (non-recursive)
 
         let binding = list_files_recursive(test_dir.as_ref())?;
-        let mut args: Vec<&str> = binding.iter()
-            .map(|p| p.to_str())
-            .filter(|p| p.is_some())
-            .map(|p| p.unwrap())
-            .collect();
+        let mut args: Vec<&str> = binding.iter().filter_map(|p| p.to_str()).collect();
         assert!(!args.is_empty());
         args.insert(0, "-g2");
 
@@ -95,9 +91,8 @@ mod tests {
         let result = exiftool.execute_json(&args)?;
         let parsed = parse_output::<Vec<ExifData>>(&result)?;
 
-        for item in parsed{
+        for item in parsed {
             println!("{:?}", item.source_file);
-
         }
 
         Ok(())
