@@ -671,5 +671,6 @@ pub struct VideoMetadata {
     pub track_volume: Option<String>, // String due to "%"
     pub transfer_characteristics: Option<String>,
     pub video_frame_rate: Option<f64>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub video_full_range_flag: Option<String>, // Full, Limited
 }
