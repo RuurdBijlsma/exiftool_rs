@@ -3,3 +3,5 @@
 * Make docs.rs page
 * Make more helper functions
 * refactor
+* better input types (IntoIterator / AsRef<Path>)
+* replace examples with actual examples

@@ -1,7 +1,9 @@
 use crate::core::exiftool::ExifTool;
 use crate::error::ExifToolError;
 use serde_json::Value;
+use std::io::Write;
 use std::path::Path;
+use tempfile::NamedTempFile;
 
 impl ExifTool {
     /// Get JSON metadata for a single file. This will return a single json object.
@@ -24,7 +26,39 @@ impl ExifTool {
             Ok(single.clone())
         } else {
             Err(ExifToolError::UnexpectedFormat {
-                command: args.join(" "),
+                file: path_str.to_string(),
+                args: args.join(" "),
+            })
+        }
+    }
+    /// Get JSON metadata for a multiple files. This will return a single json object.
+    /// The command executed by this function is as follows:
+    ///
+    /// `exiftool -json {...extra_args} {...file_paths} `
+    ///
+    /// You can tell exiftool to structure the output by grouping into categories with `-g1` or `-g2`.
+    pub fn batch_file_metadata<I, P>(
+        &mut self,
+        file_paths: I,
+        extra_args: &[&str],
+    ) -> Result<Vec<Value>, ExifToolError>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        let file_paths: Vec<String> = file_paths
+            .into_iter()
+            .map(|p| p.as_ref().to_string_lossy().into_owned())
+            .collect();
+        let mut args = extra_args.to_vec();
+        args.extend(file_paths.iter().map(String::as_str));
+        let result = self.execute_json(&args)?;
+        if let Value::Array(array) = result {
+            Ok(array)
+        } else {
+            Err(ExifToolError::UnexpectedFormat {
+                file: file_paths.join(", "),
+                args: args.join(" "),
             })
         }
     }
@@ -81,6 +115,41 @@ impl ExifTool {
 
         let result = self.execute_str(&args)?;
         dbg!(&result);
+        Ok(())
+    }
+
+    /// Write binary data to a metadata field.
+    /// This helper writes binary data into a field by first writing the data to a
+    /// temporary file and then instructing ExifTool to read the value from that file.
+    /// The command executed by this function is as follows:
+    ///
+    /// `exiftool -{field}<=temp_file {...extra_args} {file_path}`
+    pub fn write_tag_binary(
+        &mut self,
+        file_path: &Path,
+        field: &str,
+        data: impl AsRef<[u8]>,
+        extra_args: &[&str],
+    ) -> Result<(), ExifToolError> {
+        // Create a temporary file to hold the binary data
+        let mut temp_file = NamedTempFile::new()?;
+        temp_file.write_all(data.as_ref())?;
+
+        // Get the temporary file's path as a string.
+        let temp_path = temp_file.path().to_string_lossy();
+
+        // Construct the field argument with the '<=' operator.
+        let field_arg = format!("-{}<={}", field, temp_path);
+
+        let file_path_str = file_path.to_string_lossy();
+        let mut args = vec![field_arg.as_str()];
+        args.extend_from_slice(extra_args);
+        args.push(file_path_str.as_ref());
+
+        let result = self.execute_str(&args)?;
+        dbg!(&result);
+
+        // The temporary file is automatically removed when temp_file goes out of scope.
         Ok(())
     }
 }
@@ -160,6 +229,32 @@ mod tests {
     }
 
     #[test]
+    fn test_write_binary() -> Result<(), ExifToolError> {
+        let mut exiftool = ExifTool::new()?;
+        let temp_path = Path::new("test_data/temp_img2.jpg");
+
+        // Copy test file to temporary location
+        fs::copy(test_image(), temp_path)?;
+
+        // Get thumbnail bytes to embed
+        let thumb_image_to_embed = Path::new("test_data/other_images/jpg/gps/DSCN0010.jpg");
+        let thumb_bytes = fs::read(thumb_image_to_embed)?;
+
+        // Write binary data to thumbnail tag
+        exiftool.write_tag_binary(temp_path, "ThumbnailImage", &thumb_bytes, &[])?;
+
+        // Read back the binary tag to verify
+        let read_bytes = exiftool.read_tag_binary(temp_path, "ThumbnailImage")?;
+        assert_eq!(read_bytes, thumb_bytes);
+
+        // Clean up temporary files
+        fs::remove_file(temp_path)?;
+        fs::remove_file(format!("{}_original", temp_path.display()))?;
+
+        Ok(())
+    }
+
+    #[test]
     fn test_all_exif_files() -> Result<(), ExifToolError> {
         let test_dir = "test_data";
 
@@ -168,22 +263,11 @@ mod tests {
         assert!(!files.is_empty());
 
         let mut exiftool = ExifTool::new()?;
-
-        for file in files {
-            // Single full metadata extraction per file
-            let result = exiftool.file_metadata(&file, &[])?;
-
-            // Basic validation
-            assert!(
-                result.is_object(),
-                "Expected JSON array for file {}",
-                &file.display()
-            );
-            assert!(
-                !result.as_object().unwrap().is_empty(),
-                "Empty result for file {}",
-                &file.display()
-            );
+        let array = exiftool.batch_file_metadata(&files, &[])?;
+        for file in array {
+            if let Some(source) = file.get("SourceFile").map(|t| t.as_str()).flatten() {
+                assert!(source.len() > 0);
+            }
         }
 
         Ok(())

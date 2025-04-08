@@ -26,8 +26,8 @@ pub enum ExifToolError {
     #[error("Operation timed out. command={command}")]
     Timeout { command: String },
 
-    #[error("Expected different format from exiftool. command={command}")]
-    UnexpectedFormat { command: String },
+    #[error("Expected different format from exiftool. file={file}, args={args}")]
+    UnexpectedFormat { file: String, args: String },
 
     #[error("The required field does not exist. file={file}, field={field}")]
     FieldDoesNotExist { file: String, field: String },
