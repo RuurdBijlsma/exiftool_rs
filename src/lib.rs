@@ -1,10 +1,12 @@
+pub mod core;
 mod error;
-mod exiftool;
-mod parse;
-pub mod parse_fn;
-pub mod structs;
 mod utils;
-
+pub use core::exiftool::ExifTool;
 pub use error::ExifToolError;
-pub use exiftool::ExifTool;
-pub use parse::parse_output::parse_output;
+
+#[cfg(feature = "full-deserialize")]
+pub mod parse_fn;
+#[cfg(feature = "full-deserialize")]
+pub mod structs;
+#[cfg(feature = "full-deserialize")]
+pub use structs::g2::ExifData;

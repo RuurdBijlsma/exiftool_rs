@@ -6,6 +6,7 @@ pub fn value_to_clean_string(val: &Value) -> String {
         _ => val.to_string(),
     }
 }
+
 #[cfg(test)]
 pub mod test_helpers {
     use std::path::{Path, PathBuf};
@@ -24,5 +25,9 @@ pub mod test_helpers {
         }
 
         Ok(files)
+    }
+
+    pub fn test_image() -> String {
+        "test_data/IMG_20170801_162043.jpg".to_string()
     }
 }

@@ -152,7 +152,7 @@ fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
     let file = "test_data/IMG_20170801_162043.jpg"; // TODO: Replace
 
-    let args = &["-Author='Ruurd'", file];
+    let args = &[file, "-Author='Ruurd'"];
 
     let output_bytes = exiftool.execute_raw(args)?;
     let output_string = String::from_utf8_lossy(&output_bytes);

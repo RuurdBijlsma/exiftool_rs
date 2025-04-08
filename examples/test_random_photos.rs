@@ -1,4 +1,3 @@
-use exiftool::parse_output;
 use exiftool::structs::g2::ExifData;
 use exiftool::ExifTool;
 use std::collections::HashSet;
@@ -57,8 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Start with the arguments for exiftool
         // -g2: Group tags by family 2 (more specific groups like Camera, Image, Location)
         println!("Running exiftool... {}", &file.display());
-        let exif_json = tool.file_metadata(&file, &["-g2"])?;
-        parse_output::<ExifData>(&exif_json)?;
+        tool.file_metadata_parsed::<ExifData>(&file, &[])?;
         writeln!(file_handle, "{}", &file.display())?;
     }
 
