@@ -251,12 +251,12 @@ fn main() -> Result<(), ExifToolError> {
 This crate provides `exiftool::ExifData`. This struct maps many common fields
 output by `exiftool -g2 -json`. It's useful for accessing typed data for standard image and video metadata.
 
-* See the [structs/g2.rs](src/structs/g2.rs) file for details on the available fields.
+* See the [structs/g2.rs](https://docs.rs/exiftool/latest/exiftool/structs/g2/struct.ExifData.html) file for details on the available fields.
 * Remember to pass `"-g2"` when calling `read_metadata`.
 
 ## Error Handling
 
-All potentially failing operations return `Result<_, ExifToolError>`. The [`ExifToolError`](src/error.rs) enum covers
+All potentially failing operations return `Result<_, ExifToolError>`. The [`ExifToolError`](https://docs.rs/exiftool/latest/exiftool/enum.ExifToolError.html) enum covers
 various issues, including:
 
 * IO errors communicating with the process.

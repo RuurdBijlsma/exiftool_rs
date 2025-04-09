@@ -9,6 +9,7 @@ homepage = "https://github.com/ruurdbijlsma/exiftool-rs"
 repository = "https://github.com/ruurdbijlsma/exiftool-rs"
 readme = "README.md"
 keywords = ["exif", "exiftool", "metadata", "image", "video"]
+documentation = "https://docs.rs/exiftool/latest/exiftool/index.html"
 exclude = [
     "data",
     ".github",
