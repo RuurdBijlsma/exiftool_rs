@@ -10,7 +10,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn bench_exiftool(c: &mut Criterion) {
-    c.bench_function("spawn & read", |b| b.iter(|| run()));
+    c.bench_function("spawn & read", |b| b.iter(run));
 
     let mut et = ExifTool::new().expect("Failed to spawn ExifTool");
     c.bench_function("just read_tag", |b| {
