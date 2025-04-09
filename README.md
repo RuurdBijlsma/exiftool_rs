@@ -1,7 +1,7 @@
 # ExifTool Rust Wrapper
 
-[![Crates.io](https://img.shields.io/crates/v/exiftool.svg)](https://crates.io/crates/exiftool) <!-- TODO: Update badge when published -->
-[![Docs.rs](https://docs.rs/exiftool/badge.svg)](https://docs.rs/exiftool) <!-- TODO: Update badge when published -->
+[![Crates.io](https://img.shields.io/crates/v/exiftool.svg)](https://crates.io/crates/exiftool)
+[![Docs.rs](https://docs.rs/exiftool/badge.svg)](https://docs.rs/exiftool)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE.md)
 
 Rust wrapper for Phil Harvey's [ExifTool](https://exiftool.org/) command-line application.
@@ -70,7 +70,7 @@ use serde_json::Value;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let files = ["test_data/IMG_20170801_162043.jpg", "test_data/another_image.jpg"]; // TODO: Replace
+    let files = ["data/valid/IMG_20170801_162043.jpg", "data/image.jpg"];
 
     // Pass file paths as arguments
     let metadata_list: Value = exiftool.execute_json(&files)?;
@@ -97,7 +97,7 @@ use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let file = Path::new("image.jpg");
+    let file = Path::new("data/image.jpg");
 
     // Use -g2 for the structure expected by the ExifData type
     let json_value = exiftool.file_metadata(file, &["-g2"])?;
@@ -126,7 +126,7 @@ use std::fs;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let file = Path::new("test_data/image.jpg");
+    let file = Path::new("data/image.jpg");
 
     // Extract the thumbnail image
     let thumb_bytes = exiftool.binary_field(file, "ThumbnailImage")?;
@@ -150,7 +150,7 @@ use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let file = "test_data/IMG_20170801_162043.jpg"; // TODO: Replace
+    let file = "data/valid/IMG_20170801_162043.jpg";
 
     let args = &[file, "-Author='Ruurd'"];
 

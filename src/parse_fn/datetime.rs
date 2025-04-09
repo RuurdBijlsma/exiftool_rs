@@ -1,4 +1,3 @@
-use crate::utils::value_to_clean_string;
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use serde::{self, Deserialize, Deserializer};
 use serde_json::Value;
@@ -17,7 +16,7 @@ where
 {
     // Deserialize into a string, even if the json value is a number.
     let v: Option<Value> = Deserialize::deserialize(deserializer)?;
-    let s = v.map(|val| value_to_clean_string(&val));
+    let s = v.map(|v| v.to_string());
 
     if let Some(s) = s {
         // Try parsing with full subseconds and offset like +03:00
@@ -49,7 +48,6 @@ where
         }
 
         // All parsing failed
-        dbg!("Parsing datetime failed", &s);
         Ok(Some(MaybeDateTime::NotParsed(s)))
     } else {
         Ok(None)

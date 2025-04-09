@@ -16,7 +16,7 @@ where
         if let Ok(naive) = NaiveTime::parse_from_str(&s, "%H:%M:%S%.f") {
             return Ok(Some(naive));
         }
-        // If parsing fails, return a descriptive error.
+        // If parsing fails, log it, and set the field to None (this is not great).
         dbg!("Parsing time failed: {}", &s);
         Ok(None)
     } else {

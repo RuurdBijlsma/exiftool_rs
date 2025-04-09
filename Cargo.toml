@@ -1,32 +1,32 @@
 [package]
 name = "exiftool"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "A wrapper around Phil Harvey's powerful ExifTool."
+description = "A high-performance, idiomatic Rust wrapper for ExifTool."
 homepage = "https://github.com/ruurdbijlsma/exiftool-rs"
 repository = "https://github.com/ruurdbijlsma/exiftool-rs"
 readme = "README.md"
-keywords = ["exif", "exiftool", "video", "photo"]
+keywords = ["exif", "exiftool", "metadata", "image", "video"]
 exclude = [
-    "test_data",
+    "data",
     ".github",
     "checks",
+    ".idea",
 ]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive", "serde_derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
-serde_path_to_error = { version = "0.1.17", optional = true }
-chrono = { version = "0.4", features = ["serde"], optional = true }
 thiserror = "2.0.12"
 tempfile = "3.19.1"
+serde = { version = "^1.0.219", features = ["derive"] }
+serde_json = { version = "^1.0.140" }
+serde_path_to_error = { version = "^0.1.17" }
+chrono = { version = "^0.4.40", features = ["serde"] }
 
 [dev-dependencies]
-image = "0.25.6"
-walkdir = "2.5.0"
-
-[features]
-default = ["full-deserialize"]
-full-deserialize = ["tag-deserialize", "serde_path_to_error", "chrono"]
-tag-deserialize = ["serde", "serde_json"]
+image = "0.25"
+walkdir = "2.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+assert_matches = "1.5.0"

@@ -1,51 +1,58 @@
+use std::path::PathBuf;
 use thiserror::Error;
 
+/// Errors that can occur when interacting with ExifTool.
 #[derive(Debug, Error)]
 pub enum ExifToolError {
-    #[error("IO error: {0}")]
+    #[error("ExifTool executable not found or failed to start: {0}")]
+    ExifToolNotFound(#[source] std::io::Error),
+
+    #[error("IO error communicating with ExifTool: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("JSON parse error: {0}")]
+    #[error("JSON parsing error: {0}")]
     Json(#[from] serde_json::Error),
 
     #[error("UTF-8 conversion error: {0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 
-    #[error("File not found: {file}. command={command}")]
-    FileNotFound { file: String, command: String },
+    #[error("File not found: '{path}'. Command: exiftool {command_args}")]
+    FileNotFound { path: PathBuf, command_args: String },
 
-    #[error("ExifTool error: {message}. command={command}")]
-    ExifToolError { message: String, command: String },
+    #[error(
+        "ExifTool process error: {message}. Command: exiftool {command_args}, std_err: {std_err}"
+    )]
+    ExifToolProcess {
+        message: String,
+        std_err: String,
+        command_args: String,
+    },
 
-    #[error("Process terminated unexpectedly.")]
+    #[error("ExifTool process terminated unexpectedly.")]
     ProcessTerminated,
 
-    #[error("stderr channel for exiftool disconnected.")]
-    ChannelDisconnected,
+    #[error("ExifTool stderr stream disconnected.")]
+    StderrDisconnected,
 
-    #[error("Operation timed out. command={command}")]
-    Timeout { command: String },
+    #[error("Received unexpected output format from ExifTool for file '{path}'. Command: exiftool {command_args}")]
+    UnexpectedFormat { path: String, command_args: String },
 
-    #[error("Expected different format from exiftool. file={file}, args={args}")]
-    UnexpectedFormat { file: String, args: String },
-
-    #[error("The required field does not exist. file={file}, field={field}")]
-    FieldDoesNotExist { file: String, field: String },
-
-    #[error("The required field does not exist. file={file}, field={field}")]
-    FieldToStringFailed { file: String, field: String },
+    #[error("Tag '{tag}' not found in metadata for file '{path}'.")]
+    TagNotFound { path: PathBuf, tag: String },
 
     #[error("Deserialization error at path '{path}': {source}")]
     Deserialization {
         path: String,
+        #[source]
         source: serde_json::Error,
     },
 
-    #[error("Deserialization error at for field '{field}', file={file}, error={error}")]
-    FieldDeserializationError {
-        field: String,
-        file: String,
-        error: String,
+    #[error("Failed to deserialize tag '{tag}' for file '{path}': {error}")]
+    TagDeserialization {
+        path: PathBuf,
+        tag: String,
+        #[source]
+        error: serde_json::Error,
     },
 }
 

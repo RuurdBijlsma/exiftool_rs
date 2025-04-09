@@ -5,3 +5,9 @@
 * refactor
 * better input types (IntoIterator / AsRef<Path>)
 * replace examples with actual examples
+ai vragen:
+* examples genereren
+* refactors
+* code review
+* code performance
+* readme check
