@@ -236,7 +236,7 @@ impl ExifTool {
     /// Internal helper function.
     fn read_response_until_ready(&mut self) -> Result<Vec<u8>, ExifToolError> {
         let mut buffer = Vec::new();
-        let ready_markers = [b"\n{ready}\n", b"{ready}\r\n"];
+        let ready_markers: &[&[u8]] = &[b"{ready}\n", b"{ready}\r\n"];
 
         loop {
             let mut chunk = [0u8; 4096];
@@ -261,7 +261,7 @@ impl ExifTool {
             buffer.extend_from_slice(&chunk[..bytes_read]);
 
             // Check all possible markers
-            for marker in &ready_markers {
+            for marker in ready_markers {
                 if let Some(pos) = buffer.windows(marker.len()).position(|w| w == *marker) {
                     let data = buffer[..pos].to_vec();
                     buffer.drain(..pos + marker.len());
