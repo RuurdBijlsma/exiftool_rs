@@ -264,6 +264,7 @@ dependencies = [
  "assert_matches",
  "chrono",
  "image",
+ "log",
  "serde",
  "serde_json",
  "serde_path_to_error",

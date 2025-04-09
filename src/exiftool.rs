@@ -5,6 +5,7 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
+use log::warn;
 use tempfile::NamedTempFile;
 
 use serde::de::DeserializeOwned;
@@ -146,7 +147,7 @@ impl ExifTool {
                         command_args,
                     });
                 } else if err_line.contains("Warning:") {
-                    println!("ExifTool Warning - {}", err_line);
+                    warn!("ExifTool Warning - {}", err_line);
                 }
             }
         }

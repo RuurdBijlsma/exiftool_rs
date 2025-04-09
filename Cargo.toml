@@ -22,6 +22,7 @@ serde = { version = "^1.0.219", features = ["derive"] }
 serde_json = { version = "^1.0.140" }
 serde_path_to_error = { version = "^0.1.17" }
 chrono = { version = "^0.4.40", features = ["serde"] }
+log = "0.4.27"
 
 [dev-dependencies]
 image = "0.25"
