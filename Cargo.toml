@@ -1,26 +1,36 @@
 [package]
 name = "exiftool"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "A wrapper around Phil Harvey's powerful ExifTool."
+description = "A Rust wrapper for ExifTool."
+authors = ["Ruurd Bijlsma <ruurd@bijlsma.dev>"]
 homepage = "https://github.com/ruurdbijlsma/exiftool-rs"
 repository = "https://github.com/ruurdbijlsma/exiftool-rs"
 readme = "README.md"
-keywords = ["exif", "exiftool", "video", "photo"]
+keywords = ["exif", "exiftool", "metadata", "image", "video"]
 exclude = [
-    "test_data",
+    "data",
     ".github",
     "checks",
+    ".idea",
 ]
 
 [dependencies]
-serde = { version = "1.0", features = ["derive", "serde_derive"] }
-serde_json = { version = "1.0" }
-serde_path_to_error = "0.1.17"
 thiserror = "2.0.12"
-chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3.19.1"
+serde = { version = "^1.0.219", features = ["derive"] }
+serde_json = { version = "^1.0.140" }
+serde_path_to_error = { version = "^0.1.17" }
+chrono = { version = "^0.4.40", features = ["serde"] }
+log = "0.4.27"
 
 [dev-dependencies]
-image = "0.25.6"
-walkdir = "2.5.0"
+image = "0.25"
+walkdir = "2.5"
+assert_matches = "1.5.0"
+criterion = "0.5.1"
+
+[[bench]]
+name = "exiftool"
+harness = false

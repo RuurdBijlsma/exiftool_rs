@@ -1,7 +1,8 @@
 # ExifTool Rust Wrapper
 
-[![Crates.io](https://img.shields.io/crates/v/exiftool.svg)](https://crates.io/crates/exiftool) <!-- TODO: Update badge when published -->
-[![Docs.rs](https://docs.rs/exiftool/badge.svg)](https://docs.rs/exiftool) <!-- TODO: Update badge when published -->
+[![Crates.io](https://img.shields.io/crates/v/exiftool.svg)](https://crates.io/crates/exiftool)
+[![Docs.rs](https://docs.rs/exiftool/badge.svg)](https://docs.rs/exiftool)
+[![Build Status](https://github.com/ruurdbijlsma/exiftool-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/ruurdbijlsma/exiftool-rs/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE.md)
 
 Rust wrapper for Phil Harvey's [ExifTool](https://exiftool.org/) command-line application.
@@ -9,19 +10,20 @@ Rust wrapper for Phil Harvey's [ExifTool](https://exiftool.org/) command-line ap
 This crate interacts with a persistent `exiftool` process using the `-stay_open` argument, significantly reducing
 overhead compared to spawning a new process for each command.
 
-**Note:** This crate assumes that the `exiftool` command-line executable is already installed on your system and
-available in your system's PATH.
+**Note:** This crate assumes that the `exiftool` command-line executable is available already, via PATH or by passing an
+executable.
 
 ## Features
 
-* **Fast:** Uses a long-running `exiftool` process for minimal overhead per command.
-* **Robust:** Provides a typed Rust interface and error handling (`ExifToolError`).
-* **Flexible JSON Output:** Easily retrieve metadata as `serde_json::Value` using the `-json` argument.
-* **Typed Struct Deserialization:** Includes helper functions and pre-defined structs (`ExifData`) to parse JSON output
-  into convenient Rust types.
-* **Binary Data Extraction:** Directly extract binary data like thumbnails or previews.
-* **Raw Command Execution:** Allows executing arbitrary `exiftool` commands.
-* **Cross-Platform:** CI Tests on Windows, Linux, and Mac.
+* **🚀 Fast:** Uses a long-running `exiftool` process (`-stay_open`) for minimal overhead per command.
+* **🦀 Idiomatic Rust:** Provides a typed Rust interface, comprehensive error handling (`ExifToolError`), and leverages
+  `serde` for flexible deserialization.
+* **✅ Robust:** Includes extensive tests and CI across Windows, Linux, and macOS.
+* **🛠️ Flexible:**
+    * Read/Write string and binary tags.
+    * Retrieve metadata as structured JSON (`serde_json::Value`).
+    * Deserialize JSON output directly into your own Rust structs or use the provided `ExifData`.
+    * Execute lower-level commands when needed.
 
 ## Prerequisites
 
@@ -33,18 +35,11 @@ You must have Phil Harvey's ExifTool command-line utility installed and accessib
 * **Windows:** Download the Windows Executable from the official website and ensure its location is in your PATH
   environment variable.
 
-Verify your installation by typing `exiftool` in your terminal.
+Verify your installation by typing `exiftool -ver` in your terminal.
 
-## Usage
+## Usage Examples
 
-Usage Examples
-
-### Initialize ExifTool
-
-The ExifTool instance keeps the background process alive. It will be automatically shut down when the instance goes out
-of scope (using Drop).
-
-The `file_metadata` method is convenient for getting the JSON output for one file.
+### Read a Single Tag
 
 ```rust
 use exiftool::{ExifTool, ExifToolError};
@@ -52,72 +47,100 @@ use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let file = Path::new("file.jpg");
-    // Optionally pass "-g2" to have the JSON output grouped by category.
-    let value = exiftool.file_metadata(file, &["-g2"])?;
-    dbg!(&value);
-    Ok(())
-}
-```
+    let path = Path::new("data/image.jpg");
 
-### Get Metadata as JSON for Multiple Files
+    // Read a tag (String)
+    let make: String = exiftool.read_tag(path, "Make")?;
+    println!("Make (String): {}", make); // Output: Make (String): Huawei
 
-Use `execute_json` for processing multiple files in one command. The result is a JSON array.
+    // Read a required tag (u32)
+    let width: u32 = exiftool.read_tag(path, "ImageWidth")?;
+    println!("Width (u32): {}", width); // Output: Width (u32): 2688
 
-```rust
-use exiftool::{ExifTool, ExifToolError};
-use serde_json::Value;
-
-fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
-    let files = ["test_data/IMG_20170801_162043.jpg", "test_data/another_image.jpg"]; // TODO: Replace
-
-    // Pass file paths as arguments
-    let metadata_list: Value = exiftool.execute_json(&files)?;
-
-    if let Some(array) = metadata_list.as_array() {
-        for item in array {
-            println!("Metadata for {}:\n{:#?}", item.get("SourceFile").and_then(|v| v.as_str()).unwrap_or("unknown"), item);
-        }
-    }
+    // Read an optional tag that is missing
+    let desc: Option<String> = exiftool.read_tag(path, "ImageDescription")?;
+    println!("Description: {:?}", desc); // Output: Description: None
 
     Ok(())
 }
 ```
 
-### Parse JSON Output into Structs
-
-Use the parse_output helper and the provided ExifData struct (designed for use with -g2) for typed access.
+### Read All Metadata (as JSON `Value`)
 
 ```rust
 use exiftool::{ExifTool, ExifToolError};
-use exiftool::structs::g2::ExifData;
-use exiftool::parse::parse_output;
 use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let file = Path::new("image.jpg");
+    let path = Path::new("data/image.jpg");
+
+    // Get all metadata, grouped by category (image, audio, video, camera, etc.)
+    let metadata_json = exiftool.json(path, &["-g2"])?;
+
+    println!("All Metadata JSON (-g1 -common):\n{:#}", metadata_json);
+
+    Ok(())
+}
+```
+
+### Read and Deserialize All Metadata into a Struct.
+
+There's a provided struct (`ExifData`) for dealing with common fields, if you want that type safety. `-g2` has to be
+used to use this struct.
+
+```rust
+use exiftool::{ExifTool, ExifToolError, ExifData};
+use std::path::Path;
+
+fn main() -> Result<(), ExifToolError> {
+    let mut exiftool = ExifTool::new()?;
+    let path = Path::new("data/image.jpg");
 
     // Use -g2 for the structure expected by the ExifData type
-    let json_value = exiftool.file_metadata(file, &["-g2"])?;
+    let exif_data: ExifData = exiftool.read_metadata(path, &["-g2"])?;
 
-    // Parse the JSON Value into our struct
-    let exif_data: ExifData = parse_output(&json_value)?;
+    println!("Parsed ExifData:\n{:#?}", exif_data);
 
-    println!("Parsed Metadata:\n{:#?}", exif_data);
-
-    if let Some(image_meta) = exif_data.image {
-        println!("Aperture: {:?}", image_meta.aperture);
+    if let Some(camera_meta) = exif_data.camera {
+        println!("Camera Make: {:?}", camera_meta.make);
+        println!("Camera Model: {:?}", camera_meta.model);
+    }
+    if let Some(other_meta) = exif_data.other {
+        println!("File Name: {:?}", other_meta.file_name);
+        println!("MIME Type: {:?}", other_meta.mime_type);
     }
 
     Ok(())
 }
 ```
 
-### Extract Binary Data
+### Read Metadata for Multiple Files (Batch)
 
-Use `binary_field` to get the raw bytes of a tag.
+```rust
+use exiftool::{ExifTool, ExifToolError};
+use std::path::Path;
+
+fn main() -> Result<(), ExifToolError> {
+    let mut exiftool = ExifTool::new()?;
+    let paths = [
+        Path::new("data/image.jpg"),
+        Path::new("data/other_images/jpg/gps/DSCN0010.jpg")
+    ];
+
+    // Get specific tags for multiple files, if you want all tags, leave the `extra_args` empty.
+    let results = exiftool.json_batch(&paths, &["-FileName", "-FileSize", "-ImageWidth"])?;
+
+    for metadata_value in results {
+        println!("--- File: {} ---", metadata_value.get("SourceFile").and_then(|v| v.as_str()).unwrap_or("N/A"));
+        println!("{:#}", metadata_value);
+    }
+
+    Ok(())
+}
+```
+
+### Read Binary Data (e.g., Thumbnail)
 
 ```rust
 use exiftool::{ExifTool, ExifToolError};
@@ -126,55 +149,123 @@ use std::fs;
 
 fn main() -> Result<(), ExifToolError> {
     let mut exiftool = ExifTool::new()?;
-    let file = Path::new("test_data/image.jpg");
+    let path = Path::new("data/image.jpg");
 
     // Extract the thumbnail image
-    let thumb_bytes = exiftool.binary_field(file, "ThumbnailImage")?;
-
+    let thumb_bytes = exiftool.read_tag_binary(path, "ThumbnailImage")?;
     println!("Read {} bytes for ThumbnailImage", thumb_bytes.len());
-
     // Optional: Save the thumbnail
     fs::write("thumbnail.jpg", &thumb_bytes)?;
+    assert!(!thumb_bytes.is_empty());
 
     Ok(())
 }
 ```
 
-### Execute Raw Commands
+### Write a Tag
 
-For commands not covered by helpers, use execute_raw.
+**Warning:** ExifTool creates a backup file named `{filename}_original` when writing.
 
 ```rust
 use exiftool::{ExifTool, ExifToolError};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::fs;
 
-fn main() -> Result<(), ExifToolError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> { // Using Box<dyn Error> for example simplicity
     let mut exiftool = ExifTool::new()?;
-    let file = "test_data/IMG_20170801_162043.jpg"; // TODO: Replace
+    let source_path = Path::new("data/image.jpg");
 
-    let args = &["-Author='Ruurd'", file];
+    let new_comment = "Written by exiftool-rs test!";
 
-    let output_bytes = exiftool.execute_raw(args)?;
-    let output_string = String::from_utf8_lossy(&output_bytes);
+    println!("Writing UserComment to: {}", source_path.display());
+    exiftool.write_tag(&source_path, "UserComment", new_comment, &[])?;
+    println!("Write successful (check file metadata externally).");
 
-    println!("Output: {}", output_string);
-    // Output: 1 image files updated
+    let read_comment: String = exiftool.read_tag(&source_path, "UserComment")?;
+    assert_eq!(read_comment, new_comment);
+    println!("Verification successful!");
+
+    Ok(())
+}
+
+```
+
+### Write Binary Data
+
+Uses a temporary file internally. Also creates `{filename}_original` as backup.
+
+```rust
+use exiftool::{ExifTool, ExifToolError};
+use std::path::{Path, PathBuf};
+use std::fs;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut exiftool = ExifTool::new()?;
+    let source_path = Path::new("data/image.jpg");
+
+    // Create some dummy binary data (e.g., a tiny valid JPEG)
+    let dummy_thumb = b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xDB\x00C\x00\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\xFF\xC0\x00\x11\x08\x00\x01\x00\x01\x03\x01\x22\x00\x02\x11\x01\x03\x11\x01\xFF\xC4\x00\x15\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xFF\xDA\x00\x0C\x03\x01\x00\x02\x11\x03\x11\x00\x3F\x00\xA8\xFF\xD9";
+
+    println!("Writing binary ThumbnailImage to: {}", source_path.display());
+    exiftool.write_tag_binary(&source_path, "ThumbnailImage", &dummy_thumb[..], &[])?;
+    println!("Binary write successful.");
+
+    // Verify (Optional)
+    let read_thumb = exiftool.read_tag_binary(&source_path, "ThumbnailImage")?;
+    assert_eq!(read_thumb, dummy_thumb);
+    println!("Binary verification successful!");
 
     Ok(())
 }
 ```
 
-### Error Handling
+### Execute Lower-Level Commands
 
-All functions return Result<_, ExifToolError>. The ExifToolError enum covers various issues,
-see [error.rs](src/error.rs).
+For commands not covered by helpers, use `execute_lines` (string lines), `json_execute` (json value), or `execute_raw` (
+bytes).
 
-## Provided Structs (ExifData)
+```rust
+use exiftool::{ExifTool, ExifToolError};
 
-This crate includes exiftool::structs::g2::ExifData which maps many common fields output by exiftool -g2 -json. This is
-useful for quickly accessing typed data for standard image and video metadata. See
-the [structs/g2.rs](src/structs/g2.rs) file for details
-on the fields. Remember to pass "-g2" when calling file_metadata or execute_json if you intend to parse into ExifData.
+fn main() -> Result<(), ExifToolError> {
+    let mut exiftool = ExifTool::new()?;
+    let path = "data/image.jpg";
+
+    // Example: Get verbose, structured output (-S) as lines
+    let args = &["-S", "-Make", "-Model", path];
+    let output_lines = exiftool.execute_lines(args)?;
+
+    println!("execute_lines Output:");
+    for line in output_lines {
+        println!("> {}", line);
+    }
+    // Output:
+    // > Make: Huawei
+    // > Model: Nexus 6P
+
+    Ok(())
+}
+```
+
+## Provided Struct (`ExifData`)
+
+This crate provides `exiftool::ExifData`. This struct maps many common fields
+output by `exiftool -g2 -json`. It's useful for accessing typed data for standard image and video metadata.
+
+* See the [structs/g2.rs](src/structs/g2.rs) file for details on the available fields.
+* Remember to pass `"-g2"` when calling `read_metadata`.
+
+## Error Handling
+
+All potentially failing operations return `Result<_, ExifToolError>`. The [`ExifToolError`](src/error.rs) enum covers
+various issues, including:
+
+* IO errors communicating with the process.
+* ExifTool executable not found.
+* Errors reported by the ExifTool process (e.g., file not found, invalid arguments).
+* JSON parsing/deserialization errors.
+* Tag not found errors.
+* Process termination issues.
 
 ## Performance
 
