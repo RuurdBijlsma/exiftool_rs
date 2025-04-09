@@ -1,8 +1,7 @@
-//! Concise example: Read metadata from multiple files in batch.
-use exiftool::{ExifTool, ExifToolError};
+ use exiftool::{ExifTool, ExifToolError};
 use std::path::{Path, PathBuf};
 
-const IMAGE_DIR: &str = "data/valid"; // Adjust if needed
+const IMAGE_DIR: &str = "data/valid/exiftool_images";
 
 // Helper to find image files (basic)
 fn find_images_in_dir(dir: &Path) -> std::io::Result<Vec<PathBuf>> {

@@ -1,17 +1,16 @@
-//! Concise example: Read multiple specific tags into a custom struct.
 use exiftool::ExifTool;
 use serde::Deserialize;
 use std::path::Path;
 
-const IMAGE_PATH: &str = "data/IMG_20170801_162043.jpg";
+const IMAGE_PATH: &str = "data/image.jpg";
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")] // Match ExifTool JSON keys
 struct CameraInfo {
     make: String,
     model: String,
-    #[serde(rename = "ISO")] // Example of rename
-    iso: Option<u32>, // Optional tag
+    #[serde(rename = "ISO")]
+    iso: Option<u32>,
 }
 
 fn main() -> Result<(), exiftool::ExifToolError> {
@@ -28,9 +27,9 @@ fn main() -> Result<(), exiftool::ExifToolError> {
     // Output:
     // Read specific tags into struct:
     // CameraInfo {
-    //     make: "Huawei",
-    //     model: "Nexus 6P",
-    //     iso: Some(121),
+    //     make: "LG Electronics",
+    //     model: "LG-H815",
+    //     iso: Some(400),
     // }
 
     Ok(())
