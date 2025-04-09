@@ -15,9 +15,9 @@ executable.
 ## Features
 
 * **🚀 Fast:** Uses a long-running `exiftool` process (`-stay_open`) for minimal overhead per command.
-* **🦀 Idiomatic Rust:** Provides a typed Rust interface, comprehensive error handling (`ExifToolError`), and leverages
-  `serde` for flexible deserialization.
-* **✅ Robust:** Includes extensive tests and CI across Windows, Linux, and macOS.
+* **🦀 Rust-friendly:** Simple typed API with clear error handling (`ExifToolError`), and `serde` support for
+  deserialization.
+* **✅ Robust:** Tested cross-platform, CI across Windows, Linux, and macOS.
 * **🛠️ Flexible:**
     * Read/Write string and binary tags.
     * Retrieve metadata as structured JSON (`serde_json::Value`).
@@ -251,12 +251,14 @@ fn main() -> Result<(), ExifToolError> {
 This crate provides `exiftool::ExifData`. This struct maps many common fields
 output by `exiftool -g2 -json`. It's useful for accessing typed data for standard image and video metadata.
 
-* See the [structs/g2.rs](https://docs.rs/exiftool/latest/exiftool/structs/g2/struct.ExifData.html) file for details on the available fields.
+* See the [structs/g2.rs](https://docs.rs/exiftool/latest/exiftool/structs/g2/struct.ExifData.html) file for details on
+  the available fields.
 * Remember to pass `"-g2"` when calling `read_metadata`.
 
 ## Error Handling
 
-All potentially failing operations return `Result<_, ExifToolError>`. The [`ExifToolError`](https://docs.rs/exiftool/latest/exiftool/enum.ExifToolError.html) enum covers
+All potentially failing operations return `Result<_, ExifToolError>`. The [
+`ExifToolError`](https://docs.rs/exiftool/latest/exiftool/enum.ExifToolError.html) enum covers
 various issues, including:
 
 * IO errors communicating with the process.
