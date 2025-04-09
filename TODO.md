@@ -1,13 +1,2 @@
-* Release on crates.io
-  * checklist: https://rust-lang.github.io/api-guidelines/checklist.html
+* checklist: https://rust-lang.github.io/api-guidelines/checklist.html
 * Make docs.rs page
-* Make more helper functions
-* refactor
-* better input types (IntoIterator / AsRef<Path>)
-* replace examples with actual examples
-ai vragen:
-* examples genereren
-* refactors
-* code review
-* code performance
-* readme check
