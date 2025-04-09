@@ -1,6 +1,6 @@
 [package]
 name = "exiftool"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "A Rust wrapper for ExifTool."
@@ -9,6 +9,7 @@ homepage = "https://github.com/ruurdbijlsma/exiftool-rs"
 repository = "https://github.com/ruurdbijlsma/exiftool-rs"
 readme = "README.md"
 keywords = ["exif", "exiftool", "metadata", "image", "video"]
+documentation = "https://docs.rs/exiftool/latest/exiftool/index.html"
 exclude = [
     "data",
     ".github",
