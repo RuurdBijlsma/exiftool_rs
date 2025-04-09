@@ -11,8 +11,10 @@ use tempfile::NamedTempFile;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-const STDERR_POLL_INTERVAL: Duration = Duration::from_millis(5);
-const STDERR_POLL_TIMEOUT: Duration = Duration::from_millis(50);
+// std err can come in a tiny bit delayed after stdout, in which case we have to wait a
+// millisecond or 2 to be able to read errors and warnings.
+const STDERR_POLL_INTERVAL: Duration = Duration::from_millis(1);
+const STDERR_POLL_TIMEOUT: Duration = Duration::from_millis(2);
 
 /// Main struct for interacting with the ExifTool process.
 ///
