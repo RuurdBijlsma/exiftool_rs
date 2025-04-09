@@ -8,12 +8,6 @@
 //! It maintains a long-running ExifTool process in stay-open mode for efficiency when
 //! processing multiple files or commands.
 //!
-//! ## Features
-//!
-//! - `serde`: Enables a generic read_tag method.
-//! - `structs`: Enables the pre-defined `ExifData` struct for convenient deserialization
-//!   of common metadata fields.
-//!
 //! ## Basic Usage
 //!
 //! ```no_run
