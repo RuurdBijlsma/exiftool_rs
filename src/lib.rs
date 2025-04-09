@@ -88,7 +88,7 @@ pub use error::ExifToolError;
 pub use exiftool::ExifTool;
 
 pub mod parse_fn;
-pub mod structs;
+mod structs;
 pub use structs::g2::ExifData;
 
 mod utils;

@@ -1,6 +1,6 @@
 [package]
 name = "exiftool"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 license = "Apache-2.0"
 description = "A Rust wrapper for ExifTool."
@@ -16,6 +16,7 @@ exclude = [
     "checks",
     ".idea",
 ]
+categories = ["multimedia::images", "multimedia::video", "multimedia::audio", "command-line-utilities"]
 
 [dependencies]
 thiserror = "2.0.12"
