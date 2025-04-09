@@ -1,11 +1,11 @@
 use crate::error::ExifToolError;
+use log::warn;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
-use log::warn;
 use tempfile::NamedTempFile;
 
 use serde::de::DeserializeOwned;

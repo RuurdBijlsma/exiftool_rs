@@ -1,4 +1,4 @@
- use exiftool::{ExifTool, ExifToolError};
+use exiftool::{ExifTool, ExifToolError};
 use std::path::{Path, PathBuf};
 
 const IMAGE_DIR: &str = "data/valid/exiftool_images";
@@ -8,7 +8,15 @@ fn find_images_in_dir(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
     Ok(std::fs::read_dir(dir)?
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| path.is_file() && path.extension().map_or(false, |ext| matches!(ext.to_str(), Some("jpg") | Some("jpeg") | Some("png") | Some("tif"))))
+        .filter(|path| {
+            path.is_file()
+                && path.extension().is_some_and(|ext| {
+                    matches!(
+                        ext.to_str(),
+                        Some("jpg") | Some("jpeg") | Some("png") | Some("tif")
+                    )
+                })
+        })
         .collect())
 }
 
@@ -26,7 +34,11 @@ fn main() -> Result<(), ExifToolError> {
         return Ok(());
     }
 
-    println!("Found {} images in '{}'. Reading batch...", paths.len(), IMAGE_DIR);
+    println!(
+        "Found {} images in '{}'. Reading batch...",
+        paths.len(),
+        IMAGE_DIR
+    );
 
     // Read FileName and ImageSize for all files in the list
     let results = et.json_batch(&paths, &["-FileName", "-ImageSize"])?;

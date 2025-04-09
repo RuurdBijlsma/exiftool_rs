@@ -6,6 +6,7 @@ const IMAGE_PATH: &str = "data/image.jpg";
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")] // Match ExifTool JSON keys
+#[allow(dead_code)]
 struct CameraInfo {
     make: String,
     model: String,
