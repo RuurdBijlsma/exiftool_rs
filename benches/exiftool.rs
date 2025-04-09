@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use exiftool::ExifTool;
-use std::path::Path;
 use serde_json::Value;
+use std::path::Path;
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut et = ExifTool::new()?;
@@ -32,7 +32,9 @@ fn bench_exiftool(c: &mut Criterion) {
 
     c.bench_function("full json output", |b| {
         b.iter(|| {
-            let _: Value = et.json(black_box(Path::new("data/image.jpg")), &[]).unwrap();
+            let _: Value = et
+                .json(black_box(Path::new("data/image.jpg")), &[])
+                .unwrap();
         })
     });
 }
