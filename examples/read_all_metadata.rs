@@ -1,4 +1,5 @@
-use exiftool::{ExifData, ExifTool, ExifToolError};
+use exiftool::g2::ExifData;
+use exiftool::{ExifTool, ExifToolError};
 use std::path::Path;
 
 const IMAGE_PATH: &str = "data/image.jpg";

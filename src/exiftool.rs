@@ -1197,6 +1197,7 @@ impl Drop for ExifTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::g2::ExifData;
     use crate::utils::test_helpers::{list_files_recursive, test_image_path}; // Use updated helper
     use assert_matches::assert_matches;
     use image::ImageReader;
@@ -1466,8 +1467,6 @@ mod tests {
 
     #[test]
     fn test_read_metadata_full_struct() -> Result<(), ExifToolError> {
-        use crate::ExifData;
-
         let mut et = ExifTool::new()?;
         let path = test_image_path();
         // Use the args required by the ExifData struct
