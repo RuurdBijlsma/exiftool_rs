@@ -18,6 +18,10 @@ exclude = [
 ]
 categories = ["multimedia::images", "multimedia::video", "multimedia::audio", "command-line-utilities"]
 
+[[bench]]
+name = "exiftool"
+harness = false
+
 [dependencies]
 thiserror = "2.0.12"
 tempfile = "3.19.1"
@@ -32,7 +36,3 @@ image = "0.25"
 walkdir = "2.5"
 assert_matches = "1.5.0"
 criterion = "0.5.1"
-
-[[bench]]
-name = "exiftool"
-harness = false
