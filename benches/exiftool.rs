@@ -1,6 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use exiftool::ExifTool;
 use serde_json::Value;
+use std::hint::black_box;
 use std::path::Path;
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
