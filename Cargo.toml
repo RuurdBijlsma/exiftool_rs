@@ -1,12 +1,12 @@
 [package]
 name = "exiftool"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 license = "Apache-2.0"
 description = "A Rust wrapper for ExifTool."
 authors = ["Ruurd Bijlsma <ruurd@bijlsma.dev>"]
-homepage = "https://github.com/ruurdbijlsma/exiftool-rs"
-repository = "https://github.com/ruurdbijlsma/exiftool-rs"
+homepage = "https://github.com/ruurdbijlsma/exiftool_rs"
+repository = "https://github.com/ruurdbijlsma/exiftool_rs"
 readme = "README.md"
 keywords = ["exif", "exiftool", "metadata", "image", "video"]
 documentation = "https://docs.rs/exiftool/latest/exiftool/index.html"
@@ -17,6 +17,10 @@ exclude = [
     ".idea",
 ]
 categories = ["multimedia::images", "multimedia::video", "multimedia::audio", "command-line-utilities"]
+
+[[bench]]
+name = "exiftool"
+harness = false
 
 [dependencies]
 thiserror = "2.0.12"
@@ -31,8 +35,4 @@ log = "0.4.27"
 image = "0.25"
 walkdir = "2.5"
 assert_matches = "1.5.0"
-criterion = "0.5.1"
-
-[[bench]]
-name = "exiftool"
-harness = false
+criterion = "0.6.0"

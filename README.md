@@ -170,7 +170,7 @@ use exiftool::{ExifTool, ExifToolError};
 use std::path::{Path, PathBuf};
 use std::fs;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> { // Using Box<dyn Error> for example simplicity
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut exiftool = ExifTool::new()?;
     let source_path = Path::new("data/image.jpg");
 
