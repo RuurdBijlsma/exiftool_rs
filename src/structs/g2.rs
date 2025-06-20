@@ -51,7 +51,8 @@ pub struct AuthorMetadata {
 #[allow(dead_code)]
 pub struct CameraMetadata {
     pub camera_indices: Option<u32>,
-    pub cameras: Option<String>,             // URI
+    pub cameras: Option<String>, // URI
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub circle_of_confusion: Option<String>, // String due to "mm" unit
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub contrast: Option<String>,
@@ -76,11 +77,13 @@ pub struct CameraMetadata {
     pub focal_length: Option<String>, // String due to "mm" unit
     #[serde(alias = "FocalLength35efl")]
     pub focal_length_35_efl: Option<String>, // Complex string format
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub focal_length_in_35mm_format: Option<String>, // String due to "mm" unit
     #[serde(alias = "HDRPMakerNote")]
     pub hdrp_maker_note: Option<String>,
     #[serde(alias = "HdrPlusMakernote")]
     pub hdr_plus_makernote: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub hyperfocal_distance: Option<String>, // String due to "m" unit
     pub image_item_semantic: Option<String>,
     pub image_item_uri: Option<String>,
@@ -124,6 +127,7 @@ pub struct CameraMetadata {
     pub shot_log_data: Option<String>,
     #[serde(alias = "SpecialTypeID")]
     pub special_type_id: Option<String>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub subject_distance: Option<String>, // String due to unit or "inf"
     pub subject_distance_range: Option<String>,
     pub trait_: Option<String>, // "Trait" is a keyword, using trait_
@@ -146,11 +150,6 @@ pub struct DocumentMetadata {
 #[allow(dead_code)]
 pub struct ExifToolMetadata {
     pub exif_tool_version: Option<f64>,
-    // Although multiple warnings are listed, they come from different files
-    // in the combined JSON. A single file usually has one or more related warnings.
-    // Representing as Vec<String> might be better if multiple warnings per file are common.
-    // Let's stick to Option<String> first as per the single-value-per-struct-field rule.
-    // If you commonly get multiple warnings *for one file*, change to Option<Vec<String>>.
     pub warning: Option<String>,
 }
 
@@ -223,6 +222,7 @@ pub struct ImageMetadata {
     pub exif_image_height: Option<u32>,
     #[serde(deserialize_with = "crate::parse_fn::u32::permissive", default)]
     pub exif_image_width: Option<u32>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub exif_version: Option<String>, // e.g., "0232"
     #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub exposure_compensation: Option<String>, // Often 0
@@ -232,9 +232,14 @@ pub struct ImageMetadata {
     pub exposure_time: Option<String>, // String to handle fractions like "1/518" or numbers like 1
     #[serde(alias = "FNumber")]
     pub f_number: Option<f64>,
-    #[serde(alias = "FOV")]
+    #[serde(
+        alias = "FOV",
+        deserialize_with = "crate::parse_fn::string::string",
+        default
+    )]
     pub fov: Option<String>, // String due to "deg" unit
-    pub file_source: Option<String>,      // e.g., "Digital Camera"
+    pub file_source: Option<String>, // e.g., "Digital Camera"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub flashpix_version: Option<String>, // e.g., "0100"
     pub full_pano_height_pixels: Option<u32>,
     pub full_pano_width_pixels: Option<u32>,
@@ -271,7 +276,11 @@ pub struct ImageMetadata {
     pub light_value: Option<f64>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub luminance: Option<Vec<f64>>,
-    #[serde(alias = "MPFVersion")]
+    #[serde(
+        alias = "MPFVersion",
+        deserialize_with = "crate::parse_fn::string::string",
+        default
+    )]
     pub mpf_version: Option<String>, // e.g., "0100"
     #[serde(alias = "MPImageFlags")]
     pub mp_image_flags: Option<String>, // e.g., "(none)"
@@ -286,6 +295,7 @@ pub struct ImageMetadata {
     pub maker_note_unknown_text: Option<String>,
     #[serde(deserialize_with = "crate::parse_fn::space_sep::floats", default)]
     pub measurement_backing: Option<Vec<f64>>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub measurement_flare: Option<String>, // String due to "%"
     pub measurement_geometry: Option<String>,
     pub measurement_illuminant: Option<String>,
@@ -624,6 +634,7 @@ pub struct UnknownMetadata {
 #[serde(rename_all = "PascalCase")]
 #[allow(dead_code)]
 pub struct VideoMetadata {
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub avg_bitrate: Option<String>, // String due to unit "Mbps"
     pub color_primaries: Option<String>,
     pub color_profiles: Option<String>, // e.g. "nclx"
@@ -632,8 +643,10 @@ pub struct VideoMetadata {
         default
     )]
     pub compatible_brands: Option<Vec<String>>, // e.g. ["isom", "mp42"]
-    pub current_time: Option<String>,   // String due to unit "s"
-    pub duration: Option<String>,       // String due to unit "s" or format "0:02:26"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub current_time: Option<String>, // String due to unit "s"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub duration: Option<String>, // String due to unit "s" or format "0:02:26"
     pub graphics_mode: Option<String>,  // e.g., "srcCopy"
     pub handler_description: Option<String>, // e.g. "SoundHandle"
     pub handler_type: Option<String>,
@@ -644,6 +657,7 @@ pub struct VideoMetadata {
     pub matrix_structure: Option<String>, // e.g., "1 0 0 0 1 0 0 0 1"
     pub media_data_offset: Option<u64>,
     pub media_data_size: Option<u64>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub media_duration: Option<String>, // String like Duration
     pub media_header_version: Option<u32>,
     pub media_time_scale: Option<u32>,
@@ -654,20 +668,28 @@ pub struct VideoMetadata {
     pub next_track_id: Option<u32>,
     #[serde(alias = "OpColor")]
     pub op_color: Option<String>, // e.g., "0 0 0"
-    pub poster_time: Option<String>,        // String due to unit "s"
-    pub preferred_rate: Option<f64>,        // Often 1.0 or 1
-    pub preferred_volume: Option<String>,   // String due to "%"
-    pub preview_duration: Option<String>,   // String due to unit "s"
-    pub preview_time: Option<String>,       // String due to unit "s"
-    pub rotation: Option<i32>,              // e.g., 0, 90, 270
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub poster_time: Option<String>, // String due to unit "s"
+    pub preferred_rate: Option<f64>, // Often 1.0 or 1
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub preferred_volume: Option<String>, // String due to "%"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub preview_duration: Option<String>, // String due to unit "s"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub preview_time: Option<String>, // String due to unit "s"
+    pub rotation: Option<i32>,       // e.g., 0, 90, 270
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub selection_duration: Option<String>, // String due to unit "s"
-    pub selection_time: Option<String>,     // String due to unit "s"
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
+    pub selection_time: Option<String>, // String due to unit "s"
     pub time_scale: Option<u32>,
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub track_duration: Option<String>, // String like Duration
     pub track_header_version: Option<u32>,
     #[serde(alias = "TrackID")]
     pub track_id: Option<u32>,
-    pub track_layer: Option<i32>,     // Can be negative?
+    pub track_layer: Option<i32>, // Can be negative?
+    #[serde(deserialize_with = "crate::parse_fn::string::string", default)]
     pub track_volume: Option<String>, // String due to "%"
     pub transfer_characteristics: Option<String>,
     pub video_frame_rate: Option<f64>,
