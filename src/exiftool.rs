@@ -116,16 +116,29 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn with_executable(exiftool_path: &Path) -> Result<Self, ExifToolError> {
-        let mut child = Command::new(exiftool_path)
+        let mut command = Command::new(exiftool_path);
+
+        command
             .arg("-stay_open")
             .arg("True")
             .arg("-@")
             .arg("-") // Read command args from stdin
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(ExifToolError::ExifToolNotFound)?;
+            .stderr(Stdio::piped());
+
+        #[cfg(windows)]
+        {
+            // When running an application with `windows_subsystem = "windows"`
+            // spawning a `Command` will open a console window by default.
+            //
+            // We don't want that, so we suppress it with a creation flag.
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let mut child = command.spawn().map_err(ExifToolError::ExifToolNotFound)?;
 
         let stdin = child
             .stdin
