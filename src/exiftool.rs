@@ -204,7 +204,7 @@ impl ExifTool {
 
         // 2. Send command arguments line-by-line
         for arg in args {
-            writeln!(self.stdin, "{}", arg)?;
+            writeln!(self.stdin, "{arg}")?;
         }
         // 3. Send the execute signal
         writeln!(self.stdin, "-execute")?;
@@ -236,7 +236,7 @@ impl ExifTool {
                         command_args,
                     });
                 } else if err_line.contains("Warning:") {
-                    warn!("ExifTool Warning - {}", err_line);
+                    warn!("ExifTool Warning - {err_line}");
                 }
             }
         }
@@ -652,7 +652,7 @@ impl ExifTool {
         file_path: &Path,
         tags: &[&str],
     ) -> Result<T, ExifToolError> {
-        let tag_args: Vec<String> = tags.iter().map(|t| format!("-{}", t)).collect();
+        let tag_args: Vec<String> = tags.iter().map(|t| format!("-{t}")).collect();
         let tag_args_str: Vec<&str> = tag_args.iter().map(String::as_str).collect();
 
         let value = self.json(file_path, &tag_args_str)?;
@@ -790,7 +790,7 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn json_tag(&mut self, file_path: &Path, tag: &str) -> Result<Value, ExifToolError> {
-        let tag_arg = format!("-{}", tag);
+        let tag_arg = format!("-{tag}");
         // Read *only* this tag using the metadata endpoint
         let metadata_json = self.json(file_path, &[&tag_arg])?;
 
@@ -966,7 +966,7 @@ impl ExifTool {
         file_path: &Path,
         tag: &str,
     ) -> Result<Vec<u8>, ExifToolError> {
-        let tag_arg = format!("-{}", tag);
+        let tag_arg = format!("-{tag}");
         let path_str = file_path.to_string_lossy();
         let args = [path_str.as_ref(), "-b", &tag_arg];
 
@@ -1063,7 +1063,7 @@ impl ExifTool {
     ) -> Result<(), ExifToolError> {
         let value_str = value.to_string();
         // Format the core argument: -TAG=VALUE
-        let tag_arg = format!("-{}={}", tag, value_str);
+        let tag_arg = format!("-{tag}={value_str}");
 
         let path_str = file_path.to_string_lossy();
 
@@ -1159,7 +1159,7 @@ impl ExifTool {
         let temp_path_str = temp_file.path().to_string_lossy();
 
         // Construct the field argument with the '<=' operator.
-        let tag_arg = format!("-{}<={}", tag, temp_path_str);
+        let tag_arg = format!("-{tag}<={temp_path_str}");
 
         let file_path_str = file_path.to_string_lossy();
         let mut args = vec![tag_arg.as_str()];
@@ -1179,17 +1179,14 @@ impl Drop for ExifTool {
         // 1. Attempt graceful shutdown by sending exit commands.
         if let Err(e) = self.close() {
             // Log if closing failed, but proceed to kill anyway.
-            warn!("Failed to send close command to exiftool process: {}", e);
+            warn!("Failed to send close command to exiftool process: {e}",);
         }
 
         // 2. Kill the process. This ensures cleanup even if graceful shutdown fails
         //    or hangs. `kill()` on Unix sends SIGKILL; on Windows, TerminateProcess.
         if let Err(e) = self.child.kill() {
             // Log if killing failed (e.g., process already dead).
-            warn!(
-                "Failed to kill exiftool process (may already be dead): {}",
-                e
-            );
+            warn!("Failed to kill exiftool process (may already be dead): {e}");
         }
 
         // 3. Wait for the process to fully terminate and release resources.
@@ -1197,10 +1194,10 @@ impl Drop for ExifTool {
         //    attempted to kill it.
         match self.child.wait() {
             Ok(status) => {
-                log::debug!("Exiftool process exited with status: {}", status);
+                log::debug!("Exiftool process exited with status: {status}");
             }
             Err(e) => {
-                warn!("Failed to wait on exiftool child process: {}", e);
+                warn!("Failed to wait on exiftool child process: {e}");
             }
         }
         log::debug!("ExifTool instance dropped and process cleanup attempted.");
@@ -1516,8 +1513,7 @@ mod tests {
                 .map(PathBuf::from);
             assert!(
                 source_file.is_some(),
-                "SourceFile missing in result for index {}",
-                i
+                "SourceFile missing in result for index {i}"
             );
             // Note: Comparing paths directly can be tricky due to CWD differences.
             // Compare basenames or canonicalize if needed, but checking existence is good.

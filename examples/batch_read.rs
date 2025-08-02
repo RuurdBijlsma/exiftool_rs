@@ -25,12 +25,12 @@ fn main() -> Result<(), ExifToolError> {
     let img_dir_path = Path::new(IMAGE_DIR);
 
     let paths = find_images_in_dir(img_dir_path).unwrap_or_else(|e| {
-        eprintln!("Failed to read image dir '{}': {}", IMAGE_DIR, e);
+        eprintln!("Failed to read image dir '{IMAGE_DIR}': {e}");
         Vec::new()
     });
 
     if paths.is_empty() {
-        println!("No images found in '{}'. Exiting.", IMAGE_DIR);
+        println!("No images found in '{IMAGE_DIR}'. Exiting.");
         return Ok(());
     }
 

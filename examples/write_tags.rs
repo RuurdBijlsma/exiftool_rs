@@ -25,13 +25,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Write String tag
     et.write_tag(&temp_file, "UserComment", "Hello from exiftool-rs!", &args)?;
     let comment: String = et.read_tag(&temp_file, "UserComment")?;
-    println!("Wrote and read back comment: '{}'", comment);
+    println!("Wrote and read back comment: '{comment}'");
     assert_eq!(comment, "Hello from exiftool-rs!");
 
     // 2. Write Numeric tag
     et.write_tag(&temp_file, "Rating", 5, &args)?;
     let rating: u8 = et.read_tag(&temp_file, "Rating")?;
-    println!("Wrote and read back rating: {}", rating);
+    println!("Wrote and read back rating: {rating}");
     assert_eq!(rating, 5);
 
     // 3. Write Binary tag (tiny dummy JPEG)
