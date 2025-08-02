@@ -18,7 +18,7 @@ where
                     Ok(None)
                 } else {
                     s.parse::<f64>().map(Some).map_err(|_| {
-                        de::Error::custom(format!("string can't be parsed to f64: {}", s))
+                        de::Error::custom(format!("string can't be parsed to f64: {s}"))
                     })
                 }
             }
@@ -28,8 +28,7 @@ where
                 .map(Some),
             Value::Null => Ok(None),
             other => Err(de::Error::custom(format!(
-                "unexpected type for float: {:?}",
-                other
+                "unexpected type for float: {other}"
             ))),
         }
     } else {

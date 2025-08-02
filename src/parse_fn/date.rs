@@ -15,13 +15,12 @@ where
                 // Try parsing the string as a NaiveDate
                 NaiveDate::parse_from_str(&s, "%Y:%m:%d")
                     .map(Some)
-                    .map_err(|_| serde::de::Error::custom(format!("invalid date format: {}", s)))
+                    .map_err(|_| serde::de::Error::custom(format!("invalid date format: {s}")))
             }
             Value::Number(_) => Ok(None), // Gracefully skip numbers
             Value::Null => Ok(None),
             other => Err(serde::de::Error::custom(format!(
-                "unexpected type for date: {:?}",
-                other
+                "unexpected type for date: {other:?}"
             ))),
         }
     } else {
