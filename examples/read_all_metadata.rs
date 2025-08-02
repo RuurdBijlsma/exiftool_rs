@@ -16,7 +16,7 @@ fn main() -> Result<(), ExifToolError> {
     // The provided ExifData struct requires `-g2`
     println!("\n--- Reading all metadata into ExifData (-g2) ---");
     let exif_data: ExifData = et.read_metadata(path, &["-g2"])?;
-    println!("{:#?}", exif_data);
+    println!("{exif_data:#?}");
 
     Ok(())
 }
