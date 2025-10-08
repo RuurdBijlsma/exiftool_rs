@@ -62,10 +62,13 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      # Strict Clippy checks
+      # Run Clippy
       - name: Run Clippy (strict)
         run: |
-          cargo clippy --all-targets --all-features -- -D warnings -A clippy::missing_errors_doc -A clippy::missing_panics_doc
+          cargo clippy --all-features -- \
+          -D warnings -W clippy::pedantic \
+          -W clippy::nursery -W rust-2018-idioms \
+          -A clippy::single-match-else
 
       # Run tests
       - name: Run tests

@@ -66,13 +66,6 @@ try {
         $checksPassed = $false
     }
 
-    # Run tests
-    Write-Host "`n=== Running tests ===" -ForegroundColor Cyan
-    cargo test
-    if ($LASTEXITCODE -ne 0) {
-        $checksPassed = $false
-    }
-
     # Documentation check
     Write-Host "`n=== Checking documentation ===" -ForegroundColor Cyan
     cargo doc --no-deps --document-private-items
