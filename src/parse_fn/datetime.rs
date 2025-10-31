@@ -1,14 +1,24 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use serde::{self, Deserialize, Deserializer};
 
+/// Represents a datetime that can be one of several formats or an unparsed string.
 #[derive(Debug, Clone)]
 pub enum MaybeDateTime {
+    /// A naive datetime without timezone information.
     Naive(NaiveDateTime),
+    /// A datetime with a fixed timezone offset.
     Zoned(DateTime<FixedOffset>),
+    /// A naive date without time information.
     Date(NaiveDate),
+    /// The original string if parsing into a known format fails.
     NotParsed(String),
 }
 
+/// Deserializes a string by attempting to parse it into several possible datetime formats.
+///
+/// # Errors
+///
+/// Returns an error if the deserialized value is not a string or null.
 pub fn guess_datetime<'de, D>(deserializer: D) -> Result<Option<MaybeDateTime>, D::Error>
 where
     D: Deserializer<'de>,

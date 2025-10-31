@@ -1,6 +1,11 @@
 use chrono::NaiveTime;
 use serde::{self, Deserialize, Deserializer};
 
+/// Deserializes a string in "%H:%M:%S" or "%H:%M:%S%.f" format into a `NaiveTime`, returning `None` if parsing fails.
+///
+/// # Errors
+///
+/// Returns an error if the deserialized value is not a string or null.
 pub fn timestamp<'de, D>(deserializer: D) -> Result<Option<NaiveTime>, D::Error>
 where
     D: Deserializer<'de>,
