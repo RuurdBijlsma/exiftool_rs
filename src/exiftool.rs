@@ -1380,8 +1380,11 @@ mod tests {
 
         let mut et = ExifTool::new()?;
         let path = test_image_path();
-        let info: CameraInfo =
-            et.read_tags(path.as_path(), &["Make", "Model", "ImageWidth", "Software"], &[])?;
+        let info: CameraInfo = et.read_tags(
+            path.as_path(),
+            &["Make", "Model", "ImageWidth", "Software"],
+            &[],
+        )?;
 
         assert_eq!(info.make, "Huawei");
         assert_eq!(info.model, "Nexus 6P");
