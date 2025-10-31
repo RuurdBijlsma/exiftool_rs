@@ -43,7 +43,7 @@ const STDERR_POLL_TIMEOUT: Duration = Duration::from_millis(2);
 ///
 ///     // Use methods to interact with exiftool...
 ///     let path = Path::new("image.jpg");
-///     let width: u32 = et.read_tag(path, "ImageWidth")?;
+///     let width: u32 = et.read_tag(path, "ImageWidth", &[])?;
 ///     println!("Width: {}", width);
 ///
 ///     // The process is automatically closed when `et` goes out of scope
@@ -452,7 +452,8 @@ impl ExifTool {
                 path: (*args
                     .iter()
                     .find(|a| !a.starts_with('-'))
-                    .unwrap_or(&"<unknown>")).to_string(),
+                    .unwrap_or(&"<unknown>"))
+                .to_string(),
                 command_args: cmd_args.join(" "),
             });
         }
@@ -636,7 +637,7 @@ impl ExifTool {
     /// let path = Path::new("photo.jpg");
     ///
     /// // Request specific tags
-    /// let lens: LensInfo = exiftool.read_tags(path, &["Make", "FocalLength", "Aperture"])?;
+    /// let lens: LensInfo = exiftool.read_tags(path, &["Make", "FocalLength", "Aperture"], &[])?;
     ///
     /// println!("Lens Info: {:?}", lens);
     /// if let Some(focal) = lens.focal_length {
@@ -649,9 +650,11 @@ impl ExifTool {
         &mut self,
         file_path: &Path,
         tags: &[&str],
+        extra_args: &[&str],
     ) -> Result<T, ExifToolError> {
         let tag_args: Vec<String> = tags.iter().map(|t| format!("-{t}")).collect();
-        let tag_args_str: Vec<&str> = tag_args.iter().map(String::as_str).collect();
+        let mut tag_args_str: Vec<&str> = tag_args.iter().map(String::as_str).collect();
+        tag_args_str.extend_from_slice(extra_args);
 
         let value = self.json(file_path, &tag_args_str)?;
 
@@ -773,24 +776,31 @@ impl ExifTool {
     /// let mut et = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     ///
-    /// let make_value: Value = et.json_tag(path, "Make")?;
+    /// let make_value: Value = et.json_tag(path, "Make", &[])?;
     /// assert!(make_value.is_string());
     /// println!("Make JSON value: {}", make_value); // Output: "Huawei"
     ///
-    /// let width_value: Value = et.json_tag(path, "ImageWidth")?;
+    /// let width_value: Value = et.json_tag(path, "ImageWidth", &[])?;
     /// assert!(width_value.is_number());
     /// println!("Width JSON value: {}", width_value); // Output: 2688
     ///
-    /// let missing_result = et.json_tag(path, "NonExistentTag");
+    /// let missing_result = et.json_tag(path, "NonExistentTag", &[]);
     /// assert!(matches!(missing_result, Err(ExifToolError::TagNotFound { .. })));
     ///
     /// # Ok(())
     /// # }
     /// ```
-    pub fn json_tag(&mut self, file_path: &Path, tag: &str) -> Result<Value, ExifToolError> {
+    pub fn json_tag(
+        &mut self,
+        file_path: &Path,
+        tag: &str,
+        extra_args: &[&str],
+    ) -> Result<Value, ExifToolError> {
         let tag_arg = format!("-{tag}");
+        let mut args = vec![tag_arg.as_str()];
+        args.extend_from_slice(extra_args);
         // Read *only* this tag using the metadata endpoint
-        let metadata_json = self.json(file_path, &[&tag_arg])?;
+        let metadata_json = self.json(file_path, &args)?;
 
         // The result is an object like {"SourceFile": "...", "TAG": ...}
         metadata_json
@@ -844,27 +854,27 @@ impl ExifTool {
     /// let path = Path::new("data/image.jpg");
     ///
     /// // Read required tag (String) - Ok(String)
-    /// let make: String = exiftool.read_tag(path, "Make")?;
+    /// let make: String = exiftool.read_tag(path, "Make", &[])?;
     /// assert_eq!(make, "Huawei");
     ///
     /// // Read required tag (u32) - Ok(u32)
-    /// let width: u32 = exiftool.read_tag(path, "ImageWidth")?;
+    /// let width: u32 = exiftool.read_tag(path, "ImageWidth", &[])?;
     /// assert_eq!(width, 2688);
     ///
     /// // Read optional tag (Option<String>) that exists - Ok(Some(String))
-    /// let model: Option<String> = exiftool.read_tag(path, "Model")?;
+    /// let model: Option<String> = exiftool.read_tag(path, "Model", &[])?;
     /// assert!(model.is_some());
     ///
     /// // Read optional tag (Option<String>) that is missing - Ok(None)
-    /// let comment: Option<String> = exiftool.read_tag(path, "UserComment")?;
+    /// let comment: Option<String> = exiftool.read_tag(path, "UserComment", &[])?;
     /// assert!(comment.is_none());
     ///
     /// // Read missing tag into required type (String) - Err(TagNotFound)
-    /// let missing_req_result: Result<String, _> = exiftool.read_tag(path, "NonExistentTag");
+    /// let missing_req_result: Result<String, _> = exiftool.read_tag(path, "NonExistentTag", &[]);
     /// assert!(matches!(missing_req_result, Err(ExifToolError::TagNotFound { .. })));
     ///
     /// // Read existing tag (u32) into wrong type (String) - Err(TagDeserialization)
-    /// let type_mismatch_result: Result<String, _> = exiftool.read_tag(path, "ImageWidth");
+    /// let type_mismatch_result: Result<String, _> = exiftool.read_tag(path, "ImageWidth", &[]);
     /// assert!(matches!(type_mismatch_result, Err(ExifToolError::TagDeserialization { .. })));
     /// # Ok(())
     /// # }
@@ -873,9 +883,10 @@ impl ExifTool {
         &mut self,
         file_path: &Path,
         tag: &str,
+        extra_args: &[&str],
     ) -> Result<T, ExifToolError> {
         // Step 1: Attempt to get the JSON value for the tag
-        let value_result = self.json_tag(file_path, tag);
+        let value_result = self.json_tag(file_path, tag, extra_args);
 
         match value_result {
             // Case 1: Tag found, value exists. Try to deserialize it directly.
@@ -892,11 +903,16 @@ impl ExifTool {
             Err(ExifToolError::TagNotFound { .. }) => {
                 // Try to deserialize `Value::Null`. This only works if T can handle `null`
                 // (most commonly, if T is Option<Inner>).
-                serde_json::from_value(Value::Null).map_or_else(|_| Err(ExifToolError::TagNotFound {
-                        // Reconstruct the specific error
-                        path: file_path.to_path_buf(),
-                        tag: tag.to_string(),
-                    }), |val| Ok(val))
+                serde_json::from_value(Value::Null).map_or_else(
+                    |_| {
+                        Err(ExifToolError::TagNotFound {
+                            // Reconstruct the specific error
+                            path: file_path.to_path_buf(),
+                            tag: tag.to_string(),
+                        })
+                    },
+                    |val| Ok(val),
+                )
             }
 
             // Case 3: Any other error occurred while fetching the tag (IO, process error, etc.)
@@ -1027,14 +1043,14 @@ impl ExifTool {
     /// et.write_tag(&temp_path, "UserComment", comment, &[])?; // Creates backup
     ///
     /// // Read back to verify
-    /// let read_comment: String = et.read_tag(&temp_path, "UserComment")?;
+    /// let read_comment: String = et.read_tag(&temp_path, "UserComment", &[])?;
     /// assert_eq!(comment, read_comment);
     /// println!("Successfully wrote and verified UserComment.");
     ///
     /// // Write a tag and overwrite the original file
     /// let author = "Rust Programmer";
     /// et.write_tag(&temp_path, "Artist", author, &["-overwrite_original"])?;
-    /// let read_author: String = et.read_tag(&temp_path, "Artist")?;
+    /// let read_author: String = et.read_tag(&temp_path, "Artist", &[])?;
     /// assert_eq!(author, read_author);
     /// assert!(!temp_path.with_extension("jpg_original").exists(), "Backup should not exist");
     /// println!("Successfully wrote Artist tag with overwrite.");
@@ -1043,7 +1059,7 @@ impl ExifTool {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn write_tag<T: ToString>(
+    pub fn write_tag<T: ToString + ?Sized>(
         &mut self,
         file_path: &Path,
         tag: &str,
@@ -1197,7 +1213,8 @@ impl Drop for ExifTool {
 mod tests {
     use super::*;
     use crate::g2::ExifData;
-    use crate::utils::test_helpers::{list_files_recursive, test_image_path}; // Use updated helper
+    use crate::utils::test_helpers::{list_files_recursive, test_image_path};
+    // Use updated helper
     use assert_matches::assert_matches;
     use image::ImageReader;
     use serde::Deserialize;
@@ -1298,7 +1315,7 @@ mod tests {
     fn test_read_tag_json() -> Result<(), ExifToolError> {
         let mut et = ExifTool::new()?;
         let path = test_image_path();
-        let make = et.json_tag(path.as_path(), "Make")?;
+        let make = et.json_tag(path.as_path(), "Make", &[])?;
         assert_eq!(make, json!("Huawei"));
         Ok(())
     }
@@ -1307,7 +1324,7 @@ mod tests {
     fn test_read_tag_json_not_found() -> Result<(), ExifToolError> {
         let mut et = ExifTool::new()?;
         let path = test_image_path();
-        let result = et.json_tag(path.as_path(), "NonExistentTag123");
+        let result = et.json_tag(path.as_path(), "NonExistentTag123", &[]);
         assert_matches!(
             result,
             Err(ExifToolError::TagNotFound { tag, .. }) if tag == "NonExistentTag123"
@@ -1320,28 +1337,28 @@ mod tests {
         let mut et = ExifTool::new()?;
         let path = test_image_path();
 
-        let make: String = et.read_tag(path.as_path(), "Make")?;
+        let make: String = et.read_tag(path.as_path(), "Make", &[])?;
         assert_eq!(make, "Huawei");
 
-        let width: u32 = et.read_tag(path.as_path(), "ImageWidth")?;
+        let width: u32 = et.read_tag(path.as_path(), "ImageWidth", &[])?;
         assert_eq!(width, 2688);
 
         // Test Option for present tag
-        let desc: Option<String> = et.read_tag(path.as_path(), "Model")?;
+        let desc: Option<String> = et.read_tag(path.as_path(), "Model", &[])?;
         assert!(desc.is_some());
 
         // Test Option for missing tag
-        let desc: Option<String> = et.read_tag(path.as_path(), "ImageDescription")?;
+        let desc: Option<String> = et.read_tag(path.as_path(), "ImageDescription", &[])?;
         assert!(desc.is_none());
 
-        let missing: Result<String, _> = et.read_tag(path.as_path(), "NonExistentTag456");
+        let missing: Result<String, _> = et.read_tag(path.as_path(), "NonExistentTag456", &[]);
         assert_matches!(
             missing,
             Err(ExifToolError::TagNotFound { tag, .. }) if tag == "NonExistentTag456"
         );
 
         // Test deserialization failure
-        let width_as_string: Result<String, _> = et.read_tag(path.as_path(), "ImageWidth");
+        let width_as_string: Result<String, _> = et.read_tag(path.as_path(), "ImageWidth", &[]);
         assert_matches!(
             width_as_string,
             Err(ExifToolError::TagDeserialization{ tag, .. }) if tag == "ImageWidth"
@@ -1364,7 +1381,7 @@ mod tests {
         let mut et = ExifTool::new()?;
         let path = test_image_path();
         let info: CameraInfo =
-            et.read_tags(path.as_path(), &["Make", "Model", "ImageWidth", "Software"])?;
+            et.read_tags(path.as_path(), &["Make", "Model", "ImageWidth", "Software"], &[])?;
 
         assert_eq!(info.make, "Huawei");
         assert_eq!(info.model, "Nexus 6P");
@@ -1429,14 +1446,14 @@ mod tests {
         let new_author = "Rust Writer Test";
         et.write_tag(&temp_img, "Author", new_author, &[])?;
 
-        let read_author: String = et.read_tag(&temp_img, "Author")?;
+        let read_author: String = et.read_tag(&temp_img, "Author", &[])?;
         assert_eq!(read_author, new_author);
 
         // Write integer
         let new_iso = 2897;
-        et.write_tag(&temp_img, "ISO", new_iso, &[])?;
+        et.write_tag(&temp_img, "ISO", &new_iso, &[])?;
 
-        let read_iso: u32 = et.read_tag(&temp_img, "ISO")?;
+        let read_iso: u32 = et.read_tag(&temp_img, "ISO", &[])?;
         assert_eq!(read_iso, new_iso);
 
         // Clean up
@@ -1490,7 +1507,6 @@ mod tests {
         assert!(!files.is_empty(), "No test files found in data/valid");
 
         let mut exiftool = ExifTool::new()?;
-        // Use AsRef<Path> directly
         let results = exiftool.json_batch(files.iter(), &["-SourceFile"])?;
 
         assert_eq!(results.len(), files.len());

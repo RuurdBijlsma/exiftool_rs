@@ -20,7 +20,7 @@
 //!     let image_path = Path::new("path/to/your/image.jpg");
 //!
 //!     // Read a specific tag as a JSON Value
-//!     let author_value = exiftool.json_tag(image_path, "Author")?;
+//!     let author_value = exiftool.json_tag(image_path, "Author", &[])?;
 //!     if let Some(author) = author_value.as_str() {
 //!         println!("Author: {}", author);
 //!     }
@@ -64,7 +64,8 @@
 //!     // Read specific tags and deserialize into a struct
 //!     let partial_meta: ImageMetadata = exiftool.read_tags(
 //!         image_path,
-//!         &["FileName", "ImageWidth", "ImageHeight"]
+//!         &["FileName", "ImageWidth", "ImageHeight"],
+//!         &[]
 //!     )?;
 //!     println!("Partial Metadata: {:?}", partial_meta);
 //!
@@ -74,7 +75,7 @@
 //!     // println!("Full Metadata: {:?}", full_meta);
 //!
 //!     // Read a single tag and deserialize
-//!     let author: String = exiftool.read_tag(image_path, "Author")?;
+//!     let author: String = exiftool.read_tag(image_path, "Author", &[])?;
 //!     println!("Author: {}", author);
 //!
 //!     Ok(())
