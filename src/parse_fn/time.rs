@@ -18,8 +18,6 @@ where
         }
         // If parsing fails, log it, and set the field to None (this is not great).
         dbg!("Parsing time failed: {}", &s);
-        Ok(None)
-    } else {
-        Ok(None)
     }
+    Ok(None)
 }

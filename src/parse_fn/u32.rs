@@ -10,7 +10,7 @@ where
     impl Visitor<'_> for PermissiveU32Visitor {
         type Value = Option<u32>;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("any value that can be loosely interpreted as a u32")
         }
 
@@ -28,7 +28,7 @@ where
         }
 
         fn visit_f64<E: Error>(self, value: f64) -> Result<Self::Value, E> {
-            Ok(if value >= 0.0 && value <= u32::MAX as f64 {
+            Ok(if value >= 0.0 && value <= f64::from(u32::MAX) {
                 Some(value as u32)
             } else {
                 None

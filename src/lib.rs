@@ -1,11 +1,12 @@
-//! # ExifTool
+#![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+//! # `ExifTool`
 //!
-//! A Rust wrapper library for Phil Harvey's ExifTool command-line application.
+//! A Rust wrapper library for Phil Harvey's `ExifTool` command-line application.
 //!
-//! This library allows you to interact with ExifTool, enabling reading and writing
+//! This library allows you to interact with `ExifTool`, enabling reading and writing
 //! metadata tags for a wide variety of file types (images, videos, audio, documents).
 //!
-//! It maintains a long-running ExifTool process in stay-open mode for efficiency when
+//! It maintains a long-running `ExifTool` process in stay-open mode for efficiency when
 //! processing multiple files or commands.
 //!
 //! ## Basic Usage

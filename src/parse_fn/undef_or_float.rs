@@ -11,8 +11,7 @@ where
     // Deserialize into a generic JSON value
     let value: Option<Value> = Option::deserialize(deserializer)?;
 
-    if let Some(value) = value {
-        match value {
+    value.map_or_else(|| Ok(None), |value| match value {
             Value::String(s) => {
                 if s == "undef" {
                     Ok(None)
@@ -30,8 +29,5 @@ where
             other => Err(de::Error::custom(format!(
                 "unexpected type for float: {other}"
             ))),
-        }
-    } else {
-        Ok(None)
-    }
+        })
 }

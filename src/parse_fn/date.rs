@@ -9,21 +9,16 @@ where
     // Deserialize into a generic JSON value
     let value: Option<Value> = Option::deserialize(deserializer)?;
 
-    if let Some(value) = value {
-        match value {
+    value.map_or_else(|| Ok(None), |value| match value {
             Value::String(s) => {
                 // Try parsing the string as a NaiveDate
                 NaiveDate::parse_from_str(&s, "%Y:%m:%d")
                     .map(Some)
                     .map_err(|_| serde::de::Error::custom(format!("invalid date format: {s}")))
             }
-            Value::Number(_) => Ok(None), // Gracefully skip numbers
-            Value::Null => Ok(None),
+            Value::Number(_) | Value::Null => Ok(None), // Gracefully skip numbers
             other => Err(serde::de::Error::custom(format!(
                 "unexpected type for date: {other:?}"
             ))),
-        }
-    } else {
-        Ok(None)
-    }
+        })
 }

@@ -11,7 +11,7 @@ where
     impl<'de> Visitor<'de> for StringOrNumberVisitor {
         type Value = String;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("a string, number, or sequence")
         }
 
@@ -72,8 +72,5 @@ where
     }
 
     // Attempt deserialization but return None instead of erroring
-    match deserializer.deserialize_any(StringOrNumberVisitor) {
-        Ok(s) => Ok(Some(s)),
-        Err(_) => Ok(None), // Fallback to None on any error
-    }
+    deserializer.deserialize_any(StringOrNumberVisitor).map_or_else(|_| Ok(None), |s| Ok(Some(s)))
 }
