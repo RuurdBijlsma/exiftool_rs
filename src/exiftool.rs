@@ -134,7 +134,7 @@ impl ExifTool {
             //
             // We don't want that, so we suppress it with a creation flag.
             use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
 
@@ -258,7 +258,9 @@ impl ExifTool {
                 // EOF before "{ready}" means the process likely terminated.
                 // Try draining stderr one last time to capture potential fatal errors.
                 let stderr_lines = self.drain_stderr().unwrap_or_default();
-                return if !stderr_lines.is_empty() {
+                return if stderr_lines.is_empty() {
+                    Err(ExifToolError::ProcessTerminated)
+                } else {
                     Err(ExifToolError::ExifToolProcess {
                         std_err: stderr_lines.join("\n"),
                         message: format!(
@@ -267,8 +269,6 @@ impl ExifTool {
                         ),
                         command_args: "<unknown - process terminated>".to_string(),
                     })
-                } else {
-                    Err(ExifToolError::ProcessTerminated)
                 };
             }
             buffer.extend_from_slice(&chunk[..bytes_read]);
@@ -286,7 +286,7 @@ impl ExifTool {
 
     /// Drains the stderr channel, collecting recent error messages.
     /// Internal helper function.
-    fn drain_stderr(&mut self) -> Result<Vec<String>, ExifToolError> {
+    fn drain_stderr(&self) -> Result<Vec<String>, ExifToolError> {
         let mut err_lines = Vec::new();
         let start_time = Instant::now();
 
@@ -316,10 +316,9 @@ impl ExifTool {
                     // but return any errors collected so far.
                     if err_lines.is_empty() {
                         return Err(ExifToolError::StderrDisconnected);
-                    } else {
-                        warn!("Stderr disconnected during polling after receiving some lines.");
-                        break; // Return collected lines below
                     }
+                    warn!("Stderr disconnected during polling after receiving some lines.");
+                    break; // Return collected lines below
                 }
             }
         }
@@ -450,11 +449,10 @@ impl ExifTool {
         if output_bytes.is_empty() {
             // Or return Ok(Value::Null) or Ok(Value::Array(vec![])) ?
             return Err(ExifToolError::UnexpectedFormat {
-                path: args
+                path: (*args
                     .iter()
                     .find(|a| !a.starts_with('-'))
-                    .unwrap_or(&"<unknown>")
-                    .to_string(),
+                    .unwrap_or(&"<unknown>")).to_string(),
                 command_args: cmd_args.join(" "),
             });
         }
@@ -519,7 +517,7 @@ impl ExifTool {
 
         if path_strs.is_empty() {
             return Err(ExifToolError::UnexpectedFormat {
-                path: "".to_string(),
+                path: String::new(),
                 command_args: extra_args.join(","),
             });
         }
@@ -894,20 +892,11 @@ impl ExifTool {
             Err(ExifToolError::TagNotFound { .. }) => {
                 // Try to deserialize `Value::Null`. This only works if T can handle `null`
                 // (most commonly, if T is Option<Inner>).
-                match serde_json::from_value(Value::Null) {
-                    // If deserializing `null` succeeds, it implies T is Option-like.
-                    // The result `val` will be the `None` variant wrapped in T (which is Option<Inner>).
-                    Ok(val) => Ok(val),
-
-                    // If deserializing `null` fails, it means T was *not* expecting an Option
-                    // (e.g., T is String, u32). In this situation, the original TagNotFound
-                    // error is the correct one to surface.
-                    Err(_) => Err(ExifToolError::TagNotFound {
+                serde_json::from_value(Value::Null).map_or_else(|_| Err(ExifToolError::TagNotFound {
                         // Reconstruct the specific error
                         path: file_path.to_path_buf(),
                         tag: tag.to_string(),
-                    }),
-                }
+                    }), |val| Ok(val))
             }
 
             // Case 3: Any other error occurred while fetching the tag (IO, process error, etc.)
@@ -1058,7 +1047,7 @@ impl ExifTool {
         &mut self,
         file_path: &Path,
         tag: &str,
-        value: T,
+        value: &T,
         extra_args: &[&str],
     ) -> Result<(), ExifToolError> {
         let value_str = value.to_string();

@@ -10,7 +10,7 @@ where
     impl<'de> Visitor<'de> for DirectoryItemLengthVisitor {
         type Value = Vec<u64>;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("a number or an array of numbers (or nested arrays) representing directory item lengths")
         }
 

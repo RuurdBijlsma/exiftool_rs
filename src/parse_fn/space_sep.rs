@@ -12,7 +12,7 @@ where
     impl<'de> Visitor<'de> for SpaceSeparatedFloatsVisitor {
         type Value = Option<Vec<f64>>;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("a string containing space-separated floating-point numbers")
         }
 
@@ -40,14 +40,11 @@ where
             D: Deserializer<'de>,
         {
             let s = Option::<String>::deserialize(deserializer)?;
-            match s {
-                Some(s) => {
+            s.map_or_else(|| Ok(None), |s| {
                     let result: Result<Vec<f64>, _> =
                         s.split_whitespace().map(f64::from_str).collect();
                     result.map(Some).map_err(de::Error::custom)
-                }
-                None => Ok(None),
-            }
+                })
         }
     }
 
