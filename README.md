@@ -49,15 +49,15 @@ fn main() -> Result<(), ExifToolError> {
     let path = Path::new("data/image.jpg");
 
     // Read a tag (String)
-    let make: String = exiftool.read_tag(path, "Make")?;
+    let make: String = exiftool.read_tag(path, "Make", &[])?;
     println!("Make (String): {}", make); // Output: Make (String): Huawei
 
     // Read a required tag (u32)
-    let width: u32 = exiftool.read_tag(path, "ImageWidth")?;
+    let width: u32 = exiftool.read_tag(path, "ImageWidth", &[])?;
     println!("Width (u32): {}", width); // Output: Width (u32): 2688
 
     // Read an optional tag that is missing
-    let desc: Option<String> = exiftool.read_tag(path, "ImageDescription")?;
+    let desc: Option<String> = exiftool.read_tag(path, "ImageDescription", &[])?;
     println!("Description: {:?}", desc); // Output: Description: None
 
     Ok(())
@@ -180,7 +180,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     exiftool.write_tag(&source_path, "UserComment", new_comment, &[])?;
     println!("Write successful (check file metadata externally).");
 
-    let read_comment: String = exiftool.read_tag(&source_path, "UserComment")?;
+    let read_comment: String = exiftool.read_tag(&source_path, "UserComment", &[])?;
     assert_eq!(read_comment, new_comment);
     println!("Verification successful!");
 

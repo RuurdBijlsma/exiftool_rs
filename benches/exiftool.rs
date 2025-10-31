@@ -6,7 +6,7 @@ use std::path::Path;
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut et = ExifTool::new()?;
-    let _: u32 = et.read_tag(Path::new("data/image.jpg"), "ImageWidth")?;
+    let _: u32 = et.read_tag(Path::new("data/image.jpg"), "ImageWidth", &[])?;
     Ok(())
 }
 
@@ -20,15 +20,16 @@ fn bench_exiftool(c: &mut Criterion) {
                 .read_tag(
                     black_box(Path::new("data/image.jpg")),
                     black_box("ImageWidth"),
+                    black_box(&[]),
                 )
                 .unwrap();
-        })
+        });
     });
 
     c.bench_function("full binary output", |b| {
         b.iter(|| {
             let _: Vec<u8> = et.execute_raw(&[black_box("data/image.jpg")]).unwrap();
-        })
+        });
     });
 
     c.bench_function("full json output", |b| {
@@ -36,7 +37,7 @@ fn bench_exiftool(c: &mut Criterion) {
             let _: Value = et
                 .json(black_box(Path::new("data/image.jpg")), &[])
                 .unwrap();
-        })
+        });
     });
 }
 

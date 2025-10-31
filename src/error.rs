@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Errors that can occur when interacting with ExifTool.
+/// Errors that can occur when interacting with `ExifTool`.
 #[derive(Debug, Error)]
 pub enum ExifToolError {
     #[error("ExifTool executable not found or failed to start: {0}")]
@@ -58,7 +58,7 @@ pub enum ExifToolError {
 
 impl From<serde_path_to_error::Error<serde_json::Error>> for ExifToolError {
     fn from(err: serde_path_to_error::Error<serde_json::Error>) -> Self {
-        ExifToolError::Deserialization {
+        Self::Deserialization {
             path: err.path().to_string(),
             source: err.into_inner(),
         }

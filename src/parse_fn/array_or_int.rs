@@ -1,21 +1,27 @@
 use serde::de::{self, Deserializer, SeqAccess, Unexpected, Visitor};
 use std::fmt;
 
+/// Deserializes a number or a potentially nested array of numbers into a flattened array of u64.
+///
+/// # Errors
+///
+/// Returns an error if the deserialized value is not a number, an array of numbers, or a nested array of numbers.
 pub fn to_array<'de, D>(deserializer: D) -> Result<Option<Vec<u64>>, D::Error>
 where
     D: Deserializer<'de>,
 {
+    /// A visitor to deserialize directory item lengths which can be a single number or an array.
     struct DirectoryItemLengthVisitor;
 
     impl<'de> Visitor<'de> for DirectoryItemLengthVisitor {
         type Value = Vec<u64>;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        /// Specifies what this visitor is expecting to parse.
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("a number or an array of numbers (or nested arrays) representing directory item lengths")
         }
 
-        // Optionally, if the JSON was just a single number (not wrapped in an array),
-        // handle that case as well.
+        /// Handles the case where the JSON is a single u64 number.
         fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
         where
             E: de::Error,
@@ -23,6 +29,7 @@ where
             Ok(vec![value])
         }
 
+        /// Handles the case where the JSON is a sequence of numbers or nested arrays of numbers.
         fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
         where
             A: SeqAccess<'de>,

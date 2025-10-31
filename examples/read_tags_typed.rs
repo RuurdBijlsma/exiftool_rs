@@ -22,7 +22,7 @@ fn main() -> Result<(), exiftool::ExifToolError> {
     let tags = ["Make", "Model", "ISO"];
 
     // Read only these tags and deserialize
-    let info: CameraInfo = et.read_tags(path, &tags)?;
+    let info: CameraInfo = et.read_tags(path, &tags, &[])?;
 
     println!("Read specific tags into struct:\n{info:#?}");
     // Output:
