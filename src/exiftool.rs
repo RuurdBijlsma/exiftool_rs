@@ -231,7 +231,7 @@ impl ExifTool {
                     });
                 } else if err_line.contains("Error:") {
                     return Err(ExifToolError::ExifToolProcess {
-                        message: err_line.to_string(),
+                        message: err_line.clone(),
                         std_err: combined_stderr,
                         command_args,
                     });
