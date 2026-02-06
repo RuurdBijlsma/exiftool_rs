@@ -10,12 +10,9 @@ fn find_images_in_dir(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
         .map(|entry| entry.path())
         .filter(|path| {
             path.is_file()
-                && path.extension().is_some_and(|ext| {
-                    matches!(
-                        ext.to_str(),
-                        Some("jpg" | "jpeg" | "png" | "tif")
-                    )
-                })
+                && path
+                    .extension()
+                    .is_some_and(|ext| matches!(ext.to_str(), Some("jpg" | "jpeg" | "png" | "tif")))
         })
         .collect())
 }

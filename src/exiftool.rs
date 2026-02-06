@@ -247,9 +247,7 @@ impl ExifTool {
     }
 
     /// Reads from stdout until the `exiftool` "{ready}" marker is found.
-    fn read_response_until_ready(
-        inner: &mut ExifToolInner,
-    ) -> Result<Vec<u8>, ExifToolError> {
+    fn read_response_until_ready(inner: &mut ExifToolInner) -> Result<Vec<u8>, ExifToolError> {
         let mut buffer = Vec::new();
         let ready_markers: &[&[u8]] = &[b"{ready}\n", b"{ready}\r\n"];
 
