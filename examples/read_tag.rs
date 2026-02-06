@@ -4,7 +4,7 @@ use std::path::Path;
 const IMAGE_PATH: &str = "data/image.jpg";
 
 fn main() -> Result<(), ExifToolError> {
-    let mut et = ExifTool::new()?;
+    let et = ExifTool::new()?;
     let path = Path::new(IMAGE_PATH);
 
     // 1. Read as raw JSON Value

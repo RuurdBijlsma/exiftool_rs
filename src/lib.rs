@@ -16,7 +16,7 @@
 //! use std::path::Path;
 //!
 //! fn main() -> Result<(), ExifToolError> {
-//!     let mut exiftool = ExifTool::new()?; // Starts the background ExifTool process
+//!     let exiftool = ExifTool::new()?; // Starts the background ExifTool process
 //!     let image_path = Path::new("path/to/your/image.jpg");
 //!
 //!     // Read a specific tag as a JSON Value
@@ -58,7 +58,7 @@
 //! }
 //!
 //! fn main() -> Result<(), ExifToolError> {
-//!     let mut exiftool = ExifTool::new()?;
+//!     let exiftool = ExifTool::new()?;
 //!     let image_path = Path::new("path/to/your/image.jpg");
 //!
 //!     // Read specific tags and deserialize into a struct

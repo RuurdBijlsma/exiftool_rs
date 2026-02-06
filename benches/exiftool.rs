@@ -5,7 +5,7 @@ use std::hint::black_box;
 use std::path::Path;
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut et = ExifTool::new()?;
+    let et = ExifTool::new()?;
     let _: u32 = et.read_tag(Path::new("data/image.jpg"), "ImageWidth", &[])?;
     Ok(())
 }
@@ -13,7 +13,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 fn bench_exiftool(c: &mut Criterion) {
     c.bench_function("spawn & read", |b| b.iter(run));
 
-    let mut et = ExifTool::new().expect("Failed to spawn ExifTool");
+    let et = ExifTool::new().expect("Failed to spawn ExifTool");
     c.bench_function("just read_tag", |b| {
         b.iter(|| {
             let _: u32 = et

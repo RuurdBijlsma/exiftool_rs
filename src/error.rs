@@ -54,6 +54,15 @@ pub enum ExifToolError {
         #[source]
         error: serde_json::Error,
     },
+
+    #[error("Mutex poison error: {0}")]
+    MutexPoison(String),
+}
+
+impl<'a, T> From<std::sync::PoisonError<std::sync::MutexGuard<'a, T>>> for ExifToolError {
+    fn from(err: std::sync::PoisonError<std::sync::MutexGuard<'a, T>>) -> Self {
+        Self::MutexPoison(err.to_string())
+    }
 }
 
 impl From<serde_path_to_error::Error<serde_json::Error>> for ExifToolError {

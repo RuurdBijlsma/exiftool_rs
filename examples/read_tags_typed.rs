@@ -15,7 +15,7 @@ struct CameraInfo {
 }
 
 fn main() -> Result<(), exiftool::ExifToolError> {
-    let mut et = ExifTool::new()?;
+    let et = ExifTool::new()?;
     let path = Path::new(IMAGE_PATH);
 
     // Tags to extract (without leading '-')

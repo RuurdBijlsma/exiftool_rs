@@ -13,7 +13,7 @@ fn setup_temp_file(src: &Path) -> std::io::Result<PathBuf> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut et = ExifTool::new()?;
+    let et = ExifTool::new()?;
     let source_path = Path::new(SOURCE_IMAGE_PATH);
     let temp_file = setup_temp_file(source_path)?;
 
