@@ -1,9 +1,10 @@
 use crate::error::ExifToolError;
-use log::warn;
+use log::{debug, warn};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 use tempfile::NamedTempFile;
@@ -39,7 +40,7 @@ const STDERR_POLL_TIMEOUT: Duration = Duration::from_millis(2);
 ///
 /// fn main() -> Result<(), ExifToolError> {
 ///     // Create an ExifTool instance (launches the process)
-///     let mut et = ExifTool::new()?;
+///     let et = ExifTool::new()?;
 ///
 ///     // Use methods to interact with exiftool...
 ///     let path = Path::new("image.jpg");
@@ -54,10 +55,15 @@ const STDERR_POLL_TIMEOUT: Duration = Duration::from_millis(2);
 /// ```
 #[derive(Debug)]
 pub struct ExifTool {
+    inner: Mutex<ExifToolInner>,
+    child: Mutex<Child>,
+}
+
+#[derive(Debug)]
+struct ExifToolInner {
     stdin: BufWriter<ChildStdin>,
     stdout: BufReader<ChildStdout>,
     stderr_receiver: Receiver<String>,
-    child: Child,
 }
 
 impl ExifTool {
@@ -122,7 +128,7 @@ impl ExifTool {
             .arg("-stay_open")
             .arg("True")
             .arg("-@")
-            .arg("-") // Read command args from stdin
+            .arg("-")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -157,25 +163,22 @@ impl ExifTool {
         let (stderr_sender, stderr_receiver) = mpsc::channel();
         let stderr_reader = BufReader::new(stderr);
         thread::spawn(move || {
-            // Send errors line by line. If the channel disconnects, the thread exits.
             for line in stderr_reader.lines().map_while(Result::ok) {
                 if stderr_sender.send(line).is_err() {
-                    // Receiver has been dropped, exiftool process likely closing
                     break;
                 }
             }
-            // Stderr stream closed or channel disconnected
         });
 
         Ok(Self {
-            stdin: BufWriter::new(stdin),
-            stdout: BufReader::new(stdout),
-            stderr_receiver,
-            child,
+            inner: Mutex::new(ExifToolInner {
+                stdin: BufWriter::new(stdin),
+                stdout: BufReader::new(stdout),
+                stderr_receiver,
+            }),
+            child: Mutex::new(child),
         })
     }
-
-    // --- Core Execution Logic ---
 
     /// Executes a command with the provided arguments and returns the raw byte output.
     ///
@@ -198,31 +201,30 @@ impl ExifTool {
     /// * [`ExifToolError::ExifToolProcess`]: If `exiftool` reports other errors on stderr.
     /// * [`ExifToolError::ProcessTerminated`]: If the process exits unexpectedly.
     /// * [`ExifToolError::StderrDisconnected`]: If the stderr monitoring fails.
-    pub fn execute_raw(&mut self, args: &[&str]) -> Result<Vec<u8>, ExifToolError> {
-        // 1. Clear any stale errors from previous commands
-        while self.stderr_receiver.try_recv().is_ok() {}
+    pub fn execute_raw(&self, args: &[&str]) -> Result<Vec<u8>, ExifToolError> {
+        let mut inner = self.inner.lock()?;
 
-        // 2. Send command arguments line-by-line
+        // Clear any stale errors
+        while inner.stderr_receiver.try_recv().is_ok() {}
+
+        // Send arguments
         for arg in args {
-            writeln!(self.stdin, "{arg}")?;
+            writeln!(inner.stdin, "{arg}")?;
         }
-        // 3. Send the execute signal
-        writeln!(self.stdin, "-execute")?;
-        self.stdin.flush()?;
+        writeln!(inner.stdin, "-execute")?;
+        inner.stdin.flush()?;
 
-        // 4. Read the response from stdout
-        let stdout_bytes = self.read_response_until_ready()?;
+        // Read response
+        let stdout_bytes = Self::read_response_until_ready(&mut inner)?;
 
-        // 5. Check for errors on stderr
-        let stderr_lines = self.drain_stderr()?;
+        // Check stderr
+        let stderr_lines = Self::drain_stderr(&inner)?;
+        drop(inner);
 
-        // 6. Process results and errors
         if !stderr_lines.is_empty() {
-            // Combine args for error reporting
             let command_args = args.join(" ");
             let combined_stderr = stderr_lines.join("\n");
 
-            // Check for specific common errors first
             for err_line in &stderr_lines {
                 if let Some(filename) = err_line.strip_prefix("Error: File not found - ") {
                     return Err(ExifToolError::FileNotFound {
@@ -241,43 +243,32 @@ impl ExifTool {
             }
         }
 
-        // If stderr contained only warnings or was empty, return the stdout bytes
         Ok(stdout_bytes)
     }
 
     /// Reads from stdout until the `exiftool` "{ready}" marker is found.
-    /// Internal helper function.
-    fn read_response_until_ready(&mut self) -> Result<Vec<u8>, ExifToolError> {
+    fn read_response_until_ready(
+        inner: &mut ExifToolInner,
+    ) -> Result<Vec<u8>, ExifToolError> {
         let mut buffer = Vec::new();
         let ready_markers: &[&[u8]] = &[b"{ready}\n", b"{ready}\r\n"];
 
         loop {
             let mut chunk = [0u8; 4096];
-            let bytes_read = self.stdout.read(&mut chunk)?;
+            let bytes_read = inner.stdout.read(&mut chunk)?;
             if bytes_read == 0 {
-                // EOF before "{ready}" means the process likely terminated.
-                // Try draining stderr one last time to capture potential fatal errors.
-                let stderr_lines = self.drain_stderr().unwrap_or_default();
-                return if stderr_lines.is_empty() {
-                    Err(ExifToolError::ProcessTerminated)
-                } else {
-                    Err(ExifToolError::ExifToolProcess {
-                        std_err: stderr_lines.join("\n"),
-                        message: format!(
-                            "Process terminated unexpectedly. Stderr:\n{}",
-                            stderr_lines.join("\n")
-                        ),
-                        command_args: "<unknown - process terminated>".to_string(),
-                    })
-                };
+                let stderr_lines = Self::drain_stderr(inner).unwrap_or_default();
+                return Err(ExifToolError::ExifToolProcess {
+                    std_err: stderr_lines.join("\n"),
+                    message: "Process terminated unexpectedly.".to_string(),
+                    command_args: "<unknown>".to_string(),
+                });
             }
             buffer.extend_from_slice(&chunk[..bytes_read]);
 
-            // Check all possible markers
             for marker in ready_markers {
                 if let Some(pos) = buffer.windows(marker.len()).position(|w| w == *marker) {
                     let data = buffer[..pos].to_vec();
-                    buffer.drain(..pos + marker.len());
                     return Ok(data);
                 }
             }
@@ -285,67 +276,34 @@ impl ExifTool {
     }
 
     /// Drains the stderr channel, collecting recent error messages.
-    /// Internal helper function.
-    fn drain_stderr(&self) -> Result<Vec<String>, ExifToolError> {
+    fn drain_stderr(inner: &ExifToolInner) -> Result<Vec<String>, ExifToolError> {
         let mut err_lines = Vec::new();
         let start_time = Instant::now();
 
-        // First, quickly drain any immediately available messages
         loop {
-            match self.stderr_receiver.try_recv() {
+            match inner.stderr_receiver.try_recv() {
                 Ok(line) => err_lines.push(line),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => return Err(ExifToolError::StderrDisconnected),
             }
         }
 
-        // Then, poll briefly for any messages that might be slightly delayed
         while start_time.elapsed() < STDERR_POLL_TIMEOUT {
-            match self.stderr_receiver.try_recv() {
+            match inner.stderr_receiver.try_recv() {
                 Ok(line) => err_lines.push(line),
                 Err(TryRecvError::Empty) => {
-                    // If we already have errors, assume the burst is over.
-                    // If not, sleep briefly and try again.
                     if !err_lines.is_empty() {
                         break;
                     }
                     thread::sleep(STDERR_POLL_INTERVAL);
                 }
-                Err(TryRecvError::Disconnected) => {
-                    // If disconnect happens *while* polling, report it,
-                    // but return any errors collected so far.
-                    if err_lines.is_empty() {
-                        return Err(ExifToolError::StderrDisconnected);
-                    }
-                    warn!("Stderr disconnected during polling after receiving some lines.");
-                    break; // Return collected lines below
-                }
+                Err(TryRecvError::Disconnected) => break,
             }
         }
-
         Ok(err_lines)
     }
 
-    /// Sends the command to gracefully close the persistent exiftool process.
-    ///
-    /// This is called automatically when the [`ExifTool`] struct is dropped.
-    /// There is usually no need to call this method directly.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ExifToolError::Io`] if writing the shutdown commands to the process fails.
-    #[doc(hidden)] // Usually not called directly by users
-    fn close(&mut self) -> Result<(), ExifToolError> {
-        // Send the command to exit stay_open mode
-        writeln!(self.stdin, "-stay_open")?;
-        writeln!(self.stdin, "False")?;
-        writeln!(self.stdin, "-execute")?;
-        self.stdin.flush()?;
-        Ok(())
-    }
-
-    // --- Public Helper Methods ---
-
+    // --- Helper Methods ---
     /// Executes an `exiftool` command and returns the standard output as lines of strings.
     ///
     /// Runs `exiftool {args...}` via the persistent process. Output is captured from stdout,
@@ -374,7 +332,7 @@ impl ExifTool {
     /// use std::path::Path;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     /// // Get Date/Time Original tag in standard (-S) format
     /// let output_lines = exiftool.execute_lines(&["-S", "-DateTimeOriginal", path.to_str().unwrap()])?;
@@ -384,7 +342,7 @@ impl ExifTool {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn execute_lines(&mut self, args: &[&str]) -> Result<Vec<String>, ExifToolError> {
+    pub fn execute_lines(&self, args: &[&str]) -> Result<Vec<String>, ExifToolError> {
         let raw_output = self.execute_raw(args)?;
         let output_string = String::from_utf8(raw_output)?;
         Ok(output_string.lines().map(String::from).collect())
@@ -419,7 +377,7 @@ impl ExifTool {
     /// use serde_json::Value;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let image_path = Path::new("data/image.jpg");
     /// let other_path = Path::new("data/another.png");
     ///
@@ -440,14 +398,11 @@ impl ExifTool {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn json_execute(&mut self, args: &[&str]) -> Result<Value, ExifToolError> {
+    pub fn json_execute(&self, args: &[&str]) -> Result<Value, ExifToolError> {
         let mut cmd_args = vec!["-json"];
         cmd_args.extend_from_slice(args);
         let output_bytes = self.execute_raw(&cmd_args)?;
-        // Handle empty output gracefully - ExifTool might return empty output for
-        // certain commands or errors that weren't caught via stderr.
         if output_bytes.is_empty() {
-            // Or return Ok(Value::Null) or Ok(Value::Array(vec![])) ?
             return Err(ExifToolError::UnexpectedFormat {
                 path: (*args
                     .iter()
@@ -457,11 +412,8 @@ impl ExifTool {
                 command_args: cmd_args.join(" "),
             });
         }
-        let value: Value = serde_json::from_slice(&output_bytes)?;
-        Ok(value)
+        Ok(serde_json::from_slice(&output_bytes)?)
     }
-
-    // --- Reading Metadata ---
 
     /// Reads metadata for multiple files, returning results as raw [`Value`]s.
     ///
@@ -490,7 +442,7 @@ impl ExifTool {
     /// use std::path::Path;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let paths = [Path::new("image1.jpg"), Path::new("image2.png")];
     ///
     /// // Get common tags, grouped by family 1 (-g1) for both files
@@ -503,7 +455,7 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn json_batch<I, P>(
-        &mut self,
+        &self,
         file_paths: I,
         extra_args: &[&str],
     ) -> Result<Vec<Value>, ExifToolError>
@@ -515,22 +467,17 @@ impl ExifTool {
             .into_iter()
             .map(|p| p.as_ref().to_string_lossy().into_owned())
             .collect();
-
         if path_strs.is_empty() {
             return Err(ExifToolError::UnexpectedFormat {
                 path: String::new(),
                 command_args: extra_args.join(","),
             });
         }
-
         let mut args = extra_args.to_vec();
-        // Convert path_strs to &str for the args slice
         let path_refs: Vec<&str> = path_strs.iter().map(String::as_str).collect();
         args.extend_from_slice(&path_refs);
 
-        let result_value = self.json_execute(&args)?;
-
-        match result_value {
+        match self.json_execute(&args)? {
             Value::Array(array) => Ok(array),
             _ => Err(ExifToolError::UnexpectedFormat {
                 path: path_strs.join(", "),
@@ -564,7 +511,7 @@ impl ExifTool {
     /// use std::path::Path;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     ///
     /// // Get common tags (-common) grouped by family 1 (-g1)
@@ -575,22 +522,15 @@ impl ExifTool {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn json(&mut self, file_path: &Path, extra_args: &[&str]) -> Result<Value, ExifToolError> {
-        let path_str = file_path.to_string_lossy();
-        let mut args = extra_args.to_vec();
-        args.push(path_str.as_ref());
-
+    pub fn json(&self, file_path: &Path, extra_args: &[&str]) -> Result<Value, ExifToolError> {
         let results = self.json_batch(std::iter::once(file_path), extra_args)?;
-
-        results.into_iter().next().ok_or_else(|| {
-            // This may happen if exiftool had an error (like file not found)
-            // but it was suppressed or not parsed correctly from stderr.
-            // We treat it as if the primary data wasn't found for the file.
-            ExifToolError::UnexpectedFormat {
+        results
+            .into_iter()
+            .next()
+            .ok_or_else(|| ExifToolError::UnexpectedFormat {
                 path: file_path.to_string_lossy().into_owned(),
-                command_args: args.join(" "),
-            }
-        })
+                command_args: extra_args.join(" "),
+            })
     }
 
     /// Reads specific tags for a single file and deserializes the result into a struct `T`.
@@ -633,7 +573,7 @@ impl ExifTool {
     /// }
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let path = Path::new("photo.jpg");
     ///
     /// // Request specific tags
@@ -647,7 +587,7 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn read_tags<T: DeserializeOwned>(
-        &mut self,
+        &self,
         file_path: &Path,
         tags: &[&str],
         extra_args: &[&str],
@@ -655,10 +595,7 @@ impl ExifTool {
         let tag_args: Vec<String> = tags.iter().map(|t| format!("-{t}")).collect();
         let mut tag_args_str: Vec<&str> = tag_args.iter().map(String::as_str).collect();
         tag_args_str.extend_from_slice(extra_args);
-
         let value = self.json(file_path, &tag_args_str)?;
-
-        // Use serde_path_to_error for better context on failure
         serde_path_to_error::deserialize(value).map_err(|e| ExifToolError::Deserialization {
             path: e.path().to_string(),
             source: e.into_inner(),
@@ -726,7 +663,7 @@ impl ExifTool {
     /// }
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     ///
     /// // Read metadata grouped by category (-g1)
@@ -740,7 +677,7 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn read_metadata<T: DeserializeOwned>(
-        &mut self,
+        &self,
         file_path: &Path,
         extra_args: &[&str],
     ) -> Result<T, ExifToolError> {
@@ -773,7 +710,7 @@ impl ExifTool {
     /// use serde_json::Value;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut et = ExifTool::new()?;
+    /// let et = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     ///
     /// let make_value: Value = et.json_tag(path, "Make", &[])?;
@@ -791,7 +728,7 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn json_tag(
-        &mut self,
+        &self,
         file_path: &Path,
         tag: &str,
         extra_args: &[&str],
@@ -799,10 +736,7 @@ impl ExifTool {
         let tag_arg = format!("-{tag}");
         let mut args = vec![tag_arg.as_str()];
         args.extend_from_slice(extra_args);
-        // Read *only* this tag using the metadata endpoint
         let metadata_json = self.json(file_path, &args)?;
-
-        // The result is an object like {"SourceFile": "...", "TAG": ...}
         metadata_json
             .get(tag)
             .cloned()
@@ -850,7 +784,7 @@ impl ExifTool {
     /// use std::path::Path;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut exiftool = ExifTool::new()?;
+    /// let exiftool = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     ///
     /// // Read required tag (String) - Ok(String)
@@ -880,16 +814,12 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn read_tag<T: DeserializeOwned>(
-        &mut self,
+        &self,
         file_path: &Path,
         tag: &str,
         extra_args: &[&str],
     ) -> Result<T, ExifToolError> {
-        // Step 1: Attempt to get the JSON value for the tag
-        let value_result = self.json_tag(file_path, tag, extra_args);
-
-        match value_result {
-            // Case 1: Tag found, value exists. Try to deserialize it directly.
+        match self.json_tag(file_path, tag, extra_args) {
             Ok(value) => {
                 serde_json::from_value(value).map_err(|e| ExifToolError::TagDeserialization {
                     path: file_path.to_path_buf(),
@@ -897,26 +827,13 @@ impl ExifTool {
                     error: e,
                 })
             }
-
-            // Case 2: Tag specifically not found by the underlying method.
-            // Now we need to check if T expects an Option.
             Err(ExifToolError::TagNotFound { .. }) => {
-                // Try to deserialize `Value::Null`. This only works if T can handle `null`
-                // (most commonly, if T is Option<Inner>).
-                serde_json::from_value(Value::Null).map_or_else(
-                    |_| {
-                        Err(ExifToolError::TagNotFound {
-                            // Reconstruct the specific error
-                            path: file_path.to_path_buf(),
-                            tag: tag.to_string(),
-                        })
-                    },
-                    |val| Ok(val),
-                )
+                serde_json::from_value(Value::Null).map_err(|_| ExifToolError::TagNotFound {
+                    path: file_path.to_path_buf(),
+                    tag: tag.to_string(),
+                })
             }
-
-            // Case 3: Any other error occurred while fetching the tag (IO, process error, etc.)
-            Err(e) => Err(e), // Propagate the underlying error
+            Err(e) => Err(e),
         }
     }
 
@@ -946,7 +863,7 @@ impl ExifTool {
     /// use std::fs;
     ///
     /// # fn main() -> Result<(), ExifToolError> {
-    /// let mut et = ExifTool::new()?;
+    /// let et = ExifTool::new()?;
     /// let path = Path::new("data/image.jpg");
     ///
     /// let thumb_bytes = et.read_tag_binary(path, "ThumbnailImage")?;
@@ -966,19 +883,12 @@ impl ExifTool {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn read_tag_binary(
-        &mut self,
-        file_path: &Path,
-        tag: &str,
-    ) -> Result<Vec<u8>, ExifToolError> {
+    pub fn read_tag_binary(&self, file_path: &Path, tag: &str) -> Result<Vec<u8>, ExifToolError> {
         let tag_arg = format!("-{tag}");
         let path_str = file_path.to_string_lossy();
         let args = [path_str.as_ref(), "-b", &tag_arg];
-
         let bytes = self.execute_raw(&args)?;
-
         if bytes.is_empty() {
-            // Assume empty binary output means tag not found for simplicity.
             return Err(ExifToolError::TagNotFound {
                 path: file_path.to_path_buf(),
                 tag: tag.to_string(),
@@ -986,8 +896,6 @@ impl ExifTool {
         }
         Ok(bytes)
     }
-
-    // --- Writing Metadata ---
 
     /// Writes a value (converted to a string) to a specific tag in a file's metadata.
     ///
@@ -1036,7 +944,7 @@ impl ExifTool {
     ///
     /// # fn main() -> Result<(), ExifToolError> {
     /// let temp_path = setup_temp_image("write_test.jpg")?;
-    /// let mut et = ExifTool::new()?;
+    /// let et = ExifTool::new()?;
     ///
     /// // Write a simple string tag
     /// let comment = "This comment was written by the Rust exiftool crate.";
@@ -1060,22 +968,18 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn write_tag<T: ToString + ?Sized>(
-        &mut self,
+        &self,
         file_path: &Path,
         tag: &str,
         value: &T,
         extra_args: &[&str],
     ) -> Result<(), ExifToolError> {
-        let value_str = value.to_string();
-        // Format the core argument: -TAG=VALUE
-        let tag_arg = format!("-{tag}={value_str}");
-
-        let path_str = file_path.to_string_lossy();
-
-        // Assemble arguments: tag assignment first, then extra args, then file path
+        let val_str = value.to_string();
+        let tag_arg = format!("-{tag}={val_str}");
         let mut args = vec![tag_arg.as_str()];
         args.extend_from_slice(extra_args);
-        args.push(path_str.as_ref());
+        let p = file_path.to_string_lossy();
+        args.push(p.as_ref());
 
         // Execute the command. The output (usually like "1 image files updated") is ignored.
         // Errors are checked via stderr within execute_raw.
@@ -1132,7 +1036,7 @@ impl ExifTool {
     ///
     /// # fn main() -> Result<(), ExifToolError> {
     /// let temp_path = setup_temp_image("write_binary_test.jpg")?;
-    /// let mut et = ExifTool::new()?;
+    /// let et = ExifTool::new()?;
     ///
     /// // Create some dummy binary data (e.g., a tiny placeholder thumbnail)
     /// let new_thumbnail_bytes: Vec<u8> = vec![0xFF, 0xD8, 0xFF, 0xD9]; // Minimal valid JPEG
@@ -1150,62 +1054,39 @@ impl ExifTool {
     /// # }
     /// ```
     pub fn write_tag_binary<D: AsRef<[u8]>>(
-        &mut self,
+        &self,
         file_path: &Path,
         tag: &str,
         data: D,
         extra_args: &[&str],
     ) -> Result<(), ExifToolError> {
-        // Create a temporary file to hold the binary data
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(data.as_ref())?;
         temp_file.flush()?;
-
-        let temp_path_str = temp_file.path().to_string_lossy();
-
-        // Construct the field argument with the '<=' operator.
-        let tag_arg = format!("-{tag}<={temp_path_str}");
-
-        let file_path_str = file_path.to_string_lossy();
+        let t_path = temp_file.path().to_string_lossy();
+        let tag_arg = format!("-{tag}<={t_path}");
         let mut args = vec![tag_arg.as_str()];
         args.extend_from_slice(extra_args);
-        args.push(file_path_str.as_ref());
-
-        // Execute and ignore output. temp_file is dropped (and deleted) after this scope.
-        let _ = self.execute_raw(&args)?;
+        let p = file_path.to_string_lossy();
+        args.push(p.as_ref());
+        self.execute_raw(&args)?;
         Ok(())
     }
 }
 
 impl Drop for ExifTool {
-    /// Attempts to gracefully close the `exiftool` process and then kills it
-    /// if it hasn't terminated after a short grace period (implicit in `kill`).
     fn drop(&mut self) {
-        // 1. Attempt graceful shutdown by sending exit commands.
-        if let Err(e) = self.close() {
-            // Log if closing failed, but proceed to kill anyway.
-            warn!("Failed to send close command to exiftool process: {e}",);
+        // We need to lock to send the close command
+        if let Ok(mut inner) = self.inner.lock() {
+            let _ = writeln!(inner.stdin, "-stay_open\nFalse\n-execute");
+            let _ = inner.stdin.flush();
         }
 
-        // 2. Kill the process. This ensures cleanup even if graceful shutdown fails
-        //    or hangs. `kill()` on Unix sends SIGKILL; on Windows, TerminateProcess.
-        if let Err(e) = self.child.kill() {
-            // Log if killing failed (e.g., process already dead).
-            warn!("Failed to kill exiftool process (may already be dead): {e}");
+        if let Ok(mut child) = self.child.lock() {
+            let _ = child.kill();
+            let _ = child.wait();
         }
-
-        // 3. Wait for the process to fully terminate and release resources.
-        //    This prevents zombie processes. Ignore the result, as we've already
-        //    attempted to kill it.
-        match self.child.wait() {
-            Ok(status) => {
-                log::debug!("Exiftool process exited with status: {status}");
-            }
-            Err(e) => {
-                warn!("Failed to wait on exiftool child process: {e}");
-            }
-        }
-        log::debug!("ExifTool instance dropped and process cleanup attempted.");
+        debug!("ExifTool instance dropped and process cleanup attempted.");
     }
 }
 
@@ -1246,7 +1127,7 @@ mod tests {
 
     #[test]
     fn test_execute_lines_ok() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let lines = et.execute_lines(&["-S", "-FocalLength", path.to_str().unwrap()])?;
         assert_eq!(lines.len(), 1);
@@ -1256,7 +1137,7 @@ mod tests {
 
     #[test]
     fn test_file_not_found_error() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let non_existent_path = Path::new("data/non_existent_file.jpg");
         let result = et.json(non_existent_path, &[]);
         assert_matches!(
@@ -1275,7 +1156,7 @@ mod tests {
 
     #[test]
     fn test_read_metadata_json_single() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let meta = et.json(path.as_path(), &["-Make", "-Model"])?;
 
@@ -1291,7 +1172,7 @@ mod tests {
 
     #[test]
     fn test_read_metadata_json_batch() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path1 = test_image_path();
         let path2 = PathBuf::from("data/valid/other_images/jpg/gps/DSCN0010.jpg");
         let paths = vec![path1.as_path(), path2.as_path()];
@@ -1313,7 +1194,7 @@ mod tests {
 
     #[test]
     fn test_read_tag_json() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let make = et.json_tag(path.as_path(), "Make", &[])?;
         assert_eq!(make, json!("Huawei"));
@@ -1322,7 +1203,7 @@ mod tests {
 
     #[test]
     fn test_read_tag_json_not_found() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let result = et.json_tag(path.as_path(), "NonExistentTag123", &[]);
         assert_matches!(
@@ -1334,7 +1215,7 @@ mod tests {
 
     #[test]
     fn test_read_tag_generic() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
 
         let make: String = et.read_tag(path.as_path(), "Make", &[])?;
@@ -1378,7 +1259,7 @@ mod tests {
             software: Option<String>, // Handle optional tags
         }
 
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let info: CameraInfo = et.read_tags(
             path.as_path(),
@@ -1395,7 +1276,7 @@ mod tests {
 
     #[test]
     fn test_read_tag_binary() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let thumb_bytes = et.read_tag_binary(path.as_path(), "ThumbnailImage")?;
         assert!(!thumb_bytes.is_empty());
@@ -1407,7 +1288,7 @@ mod tests {
 
     #[test]
     fn test_read_tag_binary_image() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let thumb_bytes = et.read_tag_binary(path.as_path(), "ThumbnailImage")?;
 
@@ -1430,7 +1311,7 @@ mod tests {
 
     #[test]
     fn test_read_tag_binary_not_found() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         let result = et.read_tag_binary(path.as_path(), "NonExistentBinaryTag");
         assert_matches!(
@@ -1442,7 +1323,7 @@ mod tests {
 
     #[test]
     fn test_write_tag_string() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let temp_img = setup_temp_image()?;
 
         // Write string
@@ -1468,7 +1349,7 @@ mod tests {
 
     #[test]
     fn test_write_tag_binary() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let temp_img = setup_temp_image()?;
 
         let dummy_thumb = b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xDB\x00C\x00\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\xFF\xC0\x00\x11\x08\x00\x01\x00\x01\x03\x01\x22\x00\x02\x11\x01\x03\x11\x01\xFF\xC4\x00\x15\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xFF\xDA\x00\x0C\x03\x01\x00\x02\x11\x03\x11\x00\x3F\x00\xA8\xFF\xD9"; // Tiny valid JPEG
@@ -1486,7 +1367,7 @@ mod tests {
 
     #[test]
     fn test_read_metadata_full_struct() -> Result<(), ExifToolError> {
-        let mut et = ExifTool::new()?;
+        let et = ExifTool::new()?;
         let path = test_image_path();
         // Use the args required by the ExifData struct
         let metadata: ExifData = et.read_metadata(path.as_path(), &["-g2"])?;
@@ -1509,7 +1390,7 @@ mod tests {
         let files = list_files_recursive(test_dir).expect("Failed to list test files");
         assert!(!files.is_empty(), "No test files found in data/valid");
 
-        let mut exiftool = ExifTool::new()?;
+        let exiftool = ExifTool::new()?;
         let results = exiftool.json_batch(files.iter(), &["-SourceFile"])?;
 
         assert_eq!(results.len(), files.len());

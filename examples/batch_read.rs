@@ -6,14 +6,14 @@ const IMAGE_DIR: &str = "data/valid/exiftool_images";
 // Helper to find image files (basic)
 fn find_images_in_dir(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
     Ok(std::fs::read_dir(dir)?
-        .filter_map(|entry| entry.ok())
+        .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| {
             path.is_file()
                 && path.extension().is_some_and(|ext| {
                     matches!(
                         ext.to_str(),
-                        Some("jpg") | Some("jpeg") | Some("png") | Some("tif")
+                        Some("jpg" | "jpeg" | "png" | "tif")
                     )
                 })
         })
@@ -21,7 +21,7 @@ fn find_images_in_dir(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
 }
 
 fn main() -> Result<(), ExifToolError> {
-    let mut et = ExifTool::new()?;
+    let et = ExifTool::new()?;
     let img_dir_path = Path::new(IMAGE_DIR);
 
     let paths = find_images_in_dir(img_dir_path).unwrap_or_else(|e| {

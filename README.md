@@ -14,11 +14,11 @@ executable.
 
 ## Features
 
-* **🚀 Fast:** Uses a long-running `exiftool` process (`-stay_open`) for minimal overhead per command.
-* **🦀 Rust-friendly:** Simple typed API with clear error handling (`ExifToolError`), and `serde` support for
+* Uses a long-running `exiftool` process (`-stay_open`) for minimal overhead per command.
+* Simple typed API with clear error handling (`ExifToolError`), and `serde` support for
   deserialization.
-* **✅ Robust:** Tested cross-platform, CI across Windows, Linux, and macOS.
-* **🛠️ Flexible:**
+* Tested cross-platform, CI across Windows, Linux, and macOS.
+* Many convenience functions:
     * Read/Write string and binary tags.
     * Retrieve metadata as structured JSON (`serde_json::Value`).
     * Deserialize JSON output directly into your own Rust structs or use the provided `ExifData`.
@@ -45,7 +45,7 @@ use exiftool::{ExifTool, ExifToolError};
 use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let path = Path::new("data/image.jpg");
 
     // Read a tag (String)
@@ -71,7 +71,7 @@ use exiftool::{ExifTool, ExifToolError};
 use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let path = Path::new("data/image.jpg");
 
     // Get all metadata, grouped by category (image, audio, video, camera, etc.)
@@ -93,7 +93,7 @@ use exiftool::{ExifTool, ExifToolError, ExifData};
 use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let path = Path::new("data/image.jpg");
 
     // Use -g2 for the structure expected by the ExifData type
@@ -121,7 +121,7 @@ use exiftool::{ExifTool, ExifToolError};
 use std::path::Path;
 
 fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let paths = [
         Path::new("data/image.jpg"),
         Path::new("data/other_images/jpg/gps/DSCN0010.jpg")
@@ -147,7 +147,7 @@ use std::path::Path;
 use std::fs;
 
 fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let path = Path::new("data/image.jpg");
 
     // Extract the thumbnail image
@@ -171,7 +171,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let source_path = Path::new("data/image.jpg");
 
     let new_comment = "Written by exiftool-rs test!";
@@ -199,7 +199,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let source_path = Path::new("data/image.jpg");
 
     // Create some dummy binary data (e.g., a tiny valid JPEG)
@@ -227,7 +227,7 @@ bytes).
 use exiftool::{ExifTool, ExifToolError};
 
 fn main() -> Result<(), ExifToolError> {
-    let mut exiftool = ExifTool::new()?;
+    let exiftool = ExifTool::new()?;
     let path = "data/image.jpg";
 
     // Example: Get verbose, structured output (-S) as lines

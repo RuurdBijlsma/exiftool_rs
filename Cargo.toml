@@ -35,4 +35,4 @@ log = "^0.4.28"
 image = { version = "^0.25.8", features = ["jpeg"], default-features = false }
 walkdir = "^2.5"
 assert_matches = "^1.5.0"
-criterion = { version = "^0.7.0", default-features = false }
+criterion = { version = "^0.8.2", default-features = false }
